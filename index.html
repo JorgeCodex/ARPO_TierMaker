@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A.R.P.O. TierMaker - Árbol de Relaciones de Poder Objetivas</title>
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('arpo-theme') === 'light') {
+          document.documentElement.dataset.theme = 'light';
+        }
+        var lang = localStorage.getItem('arpo-lang');
+        if (lang === 'en' || lang === 'es') {
+          document.documentElement.lang = lang;
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">A</div>
+      <h1>A.R.P.O. TierMaker</h1>
+      <span class="brand-badge">v2.0</span>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn btn-icon" id="btnUndo" data-i18n-title="header.undo" title="Deshacer (Ctrl+Z)">↶</button>
+      <button class="btn btn-icon" id="btnRedo" data-i18n-title="header.redo" title="Rehacer (Ctrl+Y)">↷</button>
+      <div style="width:1px; height:22px; background:var(--border-card); margin:0 8px;"></div>
+      <div class="split-btn" id="saveGroup">
+        <button class="btn btn-primary" id="btnSave" data-i18n-title="header.save" title="Guardar (Ctrl+S)"><span data-i18n="header.save">Guardar</span></button>
+        <button class="btn btn-primary split-toggle" id="btnSaveMenu" data-i18n-title="header.saveMenu" title="Más opciones de guardado">▾</button>
+        <div class="split-menu" id="saveMenu">
+          <button class="split-menu-item" id="btnSaveAs" data-i18n="header.saveAs">Guardar como…</button>
+        </div>
+      </div>
+      <button class="btn" id="btnOpen" data-i18n-title="header.open" title="Abrir una plantilla guardada"><span data-i18n="header.open">Abrir</span></button>
+      <button class="btn" id="btnExportJPG" data-i18n-title="header.jpg" title="Guardar el lienzo como imagen JPG"><span data-i18n="header.jpg">Guardar como JPG</span></button>
+      <div style="width:1px; height:22px; background:var(--border-card); margin:0 8px;"></div>
+      <button class="btn btn-icon" id="btnAutoLayout" data-i18n-title="header.autoLayout" title="Autoalinear por jerarquía">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="1" width="4" height="3" rx="1"/>
+          <rect x="1.5" y="12" width="4" height="3" rx="1"/>
+          <rect x="10.5" y="12" width="4" height="3" rx="1"/>
+          <path d="M8 4v4M3.5 12V8h9v4"/>
+        </svg>
+      </button>
+      <button class="btn btn-icon" id="btnSettings" data-i18n-title="header.settings" title="Ajustes (Ctrl+,)">⚙</button>
+      <input type="file" id="fileInput" accept=".json,application/json" style="display:none;">
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- Canvas Container -->
+    <div class="canvas-container" id="canvasWrapper">
+      <svg id="graphCanvas">
+        <defs>
+          <marker id="arrow-green" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" refX="7" refY="7" viewBox="0 0 14 14" orient="auto">
+            <path d="M 4.5 3 L 9 7 L 4.5 11" fill="none" stroke="#16a34a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" pointer-events="none" />
+          </marker>
+          <marker id="arrow-orange" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" refX="7" refY="7" viewBox="0 0 14 14" orient="auto">
+            <path d="M 4.5 3 L 9 7 L 4.5 11" fill="none" stroke="#d97706" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" pointer-events="none" />
+          </marker>
+          <marker id="arrow-blue" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" refX="7" refY="7" viewBox="0 0 14 14" orient="auto">
+            <path d="M 4.5 3 L 9 7 L 4.5 11" fill="none" stroke="#0891b2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" pointer-events="none" />
+          </marker>
+          <marker id="arrow-purple" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" refX="7" refY="7" viewBox="0 0 14 14" orient="auto">
+            <path d="M 4.5 3 L 9 7 L 4.5 11" fill="none" stroke="#9333ea" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" pointer-events="none" />
+          </marker>
+        </defs>
+        <g id="edgesGroup"></g>
+        <path id="tempConnectionLine" fill="none" stroke="#3b82f6" stroke-width="3" stroke-dasharray="5 5" style="display:none; pointer-events:none;" />
+      </svg>
+      <div id="nodesContainer"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Character Pool / Drawer -->
+  <div class="character-drawer" id="characterDrawer">
+    <button class="drawer-toggle" id="drawerToggle" data-i18n-title="drawer.toggle" title="Mostrar / ocultar personajes">
+      <span class="drawer-toggle-arrow" id="drawerToggleArrow">▼</span>
+      <span data-i18n="drawer.characters">Personajes</span>
+    </button>
+    <div class="drawer-body">
+      <div class="drawer-actions">
+        <button class="btn-add-char" id="btnAddChar" data-i18n-title="drawer.addChar" title="Agregar personaje">+</button>
+      </div>
+      <div class="pool-items" id="poolContainer"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Pan Hint -->
+  <div class="pan-hint" id="panHint" data-i18n="pan.hint">Espacio + Arrastre para mover el canvas</div>
+
+  <!-- MODAL: Añadir / Editar Personaje -->
+  <div class="modal-backdrop" id="modalCharacter">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h2 id="modalCharTitle" data-i18n="char.titleAdd">Añadir Nuevo Personaje</h2>
+        <button class="modal-close" onclick="closeModal('modalCharacter')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label data-i18n="char.fields">Datos del Personaje</label>
+        <div id="charFieldsList" class="char-fields-list"></div>
+        <button type="button" class="btn btn-sm" id="btnAddField" data-i18n="char.addField">+ Añadir campo</button>
+      </div>
+      <div class="form-group">
+        <label data-i18n="char.image">Imagen</label>
+        <div class="char-image-editor">
+          <div class="char-image-preview">
+            <img id="charImagePreview" alt="Vista previa" style="display:none;">
+            <span class="char-image-empty" id="charImageEmpty" data-i18n="char.imageEmpty">Sin imagen</span>
+          </div>
+          <div class="char-image-buttons">
+            <button type="button" class="btn btn-sm" id="btnCharImageChoose" data-i18n="char.changeImage">Cambiar imagen</button>
+            <button type="button" class="btn btn-sm" id="btnCharImageZoom" data-i18n="char.adjustZoom">Ajustar zoom</button>
+            <button type="button" class="btn btn-sm btn-danger" id="btnCharImageRemove" data-i18n="char.removeImage">Quitar imagen</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modalCharacter')" data-i18n="common.cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btnSaveCharacter" data-i18n="common.save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input oculto para seleccionar imagen -->
+  <input type="file" id="imgFileInput" accept="image/*" style="display:none;">
+
+  <!-- MODAL: Recortar Imagen -->
+  <div class="modal-backdrop" id="modalCrop">
+    <div class="modal-window crop-modal">
+      <div class="modal-header">
+        <h2 data-i18n="crop.title">Recortar Imagen</h2>
+        <button class="modal-close" onclick="closeCropModal()">&times;</button>
+      </div>
+      <div class="crop-body">
+        <div class="crop-viewport" id="cropViewport">
+          <img id="cropImage" src="" alt="Imagen a recortar">
+          <div id="cropFrame" class="crop-frame square"></div>
+          <div id="cropOverlay" class="crop-overlay"></div>
+        </div>
+        <div class="crop-controls">
+          <label class="crop-shape-toggle">
+            <input type="checkbox" id="cropShapeRound"> <span data-i18n="crop.round">Redondo</span>
+          </label>
+          <div class="crop-zoom">
+            <button type="button" class="crop-zoom-btn" id="btnZoomOut" data-i18n-title="crop.zoomOut" title="Alejar">−</button>
+            <button type="button" class="crop-zoom-btn" id="btnZoomIn" data-i18n-title="crop.zoomIn" title="Acercar">+</button>
+          </div>
+          <div class="crop-hint" data-i18n="crop.hint">Arrastra para encuadrar · Rueda del ratón para zoom</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeCropModal()" data-i18n="common.cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btnCropAccept" data-i18n="crop.accept">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Conexión entre personajes -->
+  <div class="modal-backdrop" id="modalEdge">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h2 id="modalEdgeTitle" data-i18n="edge.titleNew">Nueva Conexión</h2>
+        <button class="modal-close" onclick="closeModal('modalEdge')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label id="modalEdgeSubtitle" data-i18n="edge.relation">Relación</label>
+        <div class="edge-type-options" id="edgeTypeOptions">
+          <button type="button" class="edge-type-btn" data-type="green">
+            <span class="edge-type-swatch swatch-green"></span>
+            <span class="edge-type-text">
+              <span class="edge-type-name" data-i18n="edge.green.name">Verde</span>
+              <span class="edge-type-desc" data-i18n="edge.green.desc">Superioridad 100% Objetiva</span>
+            </span>
+          </button>
+          <button type="button" class="edge-type-btn" data-type="orange">
+            <span class="edge-type-swatch swatch-orange"></span>
+            <span class="edge-type-text">
+              <span class="edge-type-name" data-i18n="edge.orange.name">Naranja</span>
+              <span class="edge-type-desc" data-i18n="edge.orange.desc">Superioridad Probable (Indicios)</span>
+            </span>
+          </button>
+          <button type="button" class="edge-type-btn" data-type="blue">
+            <span class="edge-type-swatch swatch-blue"></span>
+            <span class="edge-type-text">
+              <span class="edge-type-name" data-i18n="edge.blue.name">Azul</span>
+              <span class="edge-type-desc" data-i18n="edge.blue.desc">Empate / Igualdad de Poder</span>
+            </span>
+          </button>
+          <button type="button" class="edge-type-btn" data-type="purple">
+            <span class="edge-type-swatch swatch-purple"></span>
+            <span class="edge-type-text">
+              <span class="edge-type-name" data-i18n="edge.purple.name">Morado</span>
+              <span class="edge-type-desc" data-i18n="edge.purple.desc">Indeterminada (Regla 4)</span>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="edge.note">Nota (opcional)</label>
+        <input type="text" id="edgeNoteInput" class="form-control" data-i18n-placeholder="edge.notePlaceholder" placeholder="Ej. Saga de Majin Buu">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="btnEdgeDelete" style="display:none;" data-i18n="edge.delete">Eliminar</button>
+        <button class="btn" onclick="closeModal('modalEdge')" data-i18n="common.cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btnEdgeSave" data-i18n="common.save">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Ajustes -->
+  <div class="modal-backdrop" id="modalSettings">
+    <div class="modal-window settings-window">
+      <div class="modal-header">
+        <h2 data-i18n="settings.title">Ajustes</h2>
+        <button class="modal-close" onclick="closeModal('modalSettings')">&times;</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-group">
+          <label data-i18n="settings.theme">Tema</label>
+          <div class="segmented" id="themeSegmented">
+            <button class="segmented-btn" data-theme-value="light" data-i18n="settings.themeLight">Claro</button>
+            <button class="segmented-btn" data-theme-value="dark" data-i18n="settings.themeDark">Oscuro</button>
+          </div>
+        </div>
+        <div class="settings-group">
+          <label data-i18n="settings.language">Idioma</label>
+          <div class="segmented" id="langSegmented">
+            <button class="segmented-btn" data-lang-value="es">Español</button>
+            <button class="segmented-btn" data-lang-value="en">English</button>
+          </div>
+        </div>
+        <div class="settings-group">
+          <label data-i18n="settings.about">¿Qué es A.R.P.O.?</label>
+          <div class="settings-about">
+            <p class="about-title" data-i18n="about.title">Árbol de Relaciones de Poder Objetivas</p>
+            <div class="rule-line" data-i18n-html="about.rule1">1. Si dos personajes están unidos por una línea VERDE, el de arriba es claramente superior (verdad objetiva).</div>
+            <div class="rule-line" data-i18n-html="about.rule2">2. Si dos personajes están unidos por una línea NARANJA, el de arriba es probablemente superior (subjetivo).</div>
+            <div class="rule-line" data-i18n-html="about.rule3">3. Si dos personajes están unidos por una línea AZUL, están prácticamente igualados en nivel de poder.</div>
+            <div class="rule-line" data-i18n-html="about.rule4">4. Si dos personajes están en alturas iguales o diferentes y NO están unidos por líneas o sucesiones de líneas unidireccionales, su relación de poder es indeterminada y abierta a la subjetividad.</div>
+          </div>
+        </div>
+        <div class="settings-group">
+          <label data-i18n="settings.shortcuts">Atajos de teclado</label>
+          <div class="shortcuts-list">
+            <div class="shortcut-row"><span data-i18n="sc.undo">Deshacer</span><span class="keys"><kbd>Ctrl</kbd><kbd>Z</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.redo">Rehacer</span><span class="keys"><kbd>Ctrl</kbd><kbd>Y</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.save">Guardar</span><span class="keys"><kbd>Ctrl</kbd><kbd>S</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.open">Abrir</span><span class="keys"><kbd>Ctrl</kbd><kbd>O</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.settings">Abrir ajustes</span><span class="keys"><kbd>Ctrl</kbd><kbd>,</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.toggleDrawer">Mostrar/ocultar personajes</span><span class="keys"><kbd>Ctrl</kbd><kbd>B</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.theme">Cambiar tema</span><span class="keys"><kbd>T</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.delete">Eliminar personaje</span><span class="keys"><kbd>Supr</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.centerView">Centrar vista</span><span class="keys"><kbd>0</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.pan">Mover el lienzo</span><span class="keys"><kbd>Espacio</kbd><kbd>+ Arrastrar</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.zoom">Zoom</span><span class="keys"><kbd>Rueda</kbd></span></div>
+            <div class="shortcut-row"><span data-i18n="sc.escape">Cerrar / deseleccionar</span><span class="keys"><kbd>Esc</kbd></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/state.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/cropper.js"></script>
+  <script src="js/connections.js"></script>
+  <script src="js/persistence.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
