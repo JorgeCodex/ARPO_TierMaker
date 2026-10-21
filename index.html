@@ -14,6 +14,9 @@
         if (lang === 'en' || lang === 'es') {
           document.documentElement.lang = lang;
         }
+        if (window.arpoDesktop && window.arpoDesktop.isElectron) {
+          document.documentElement.classList.add('is-electron');
+        }
       } catch (e) {}
     })();
   </script>
@@ -249,6 +252,18 @@
         <button class="menu-label" id="menuHelpAbout" data-i18n="menu.help">Ayuda</button>
       </div>
     </nav>
+    <div class="window-controls" id="windowControls">
+      <button type="button" class="window-control" id="windowMinimize" data-i18n-title="window.minimize" title="Minimizar" aria-label="Minimizar">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg>
+      </button>
+      <button type="button" class="window-control" id="windowMaximize" data-i18n-title="window.maximize" title="Maximizar" aria-label="Maximizar">
+        <svg class="icon-maximize" viewBox="0 0 10 10" aria-hidden="true"><rect x="1.2" y="1.2" width="7.6" height="7.6"/></svg>
+        <svg class="icon-restore" viewBox="0 0 10 10" aria-hidden="true"><rect x="1.2" y="3.2" width="5.6" height="5.6"/><path d="M3.2 3.2V1.2h5.6v5.6H6.8"/></svg>
+      </button>
+      <button type="button" class="window-control window-control-close" id="windowClose" data-i18n-title="window.close" title="Cerrar" aria-label="Cerrar">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1L1 9"/></svg>
+      </button>
+    </div>
     <input type="file" id="fileInput" accept=".json,application/json" style="display:none;">
     <input type="file" id="importImagesInput" accept="image/*" multiple style="display:none;">
   </header>
@@ -281,6 +296,10 @@
         <path id="tempConnectionLine" fill="none" stroke="#3b82f6" stroke-width="3" stroke-dasharray="5 5" style="display:none; pointer-events:none;" />
       </svg>
       <div id="nodesContainer"></div>
+      <div class="canvas-empty" id="canvasEmpty" hidden>
+        <p data-i18n="empty.noCanvas">No hay ningún lienzo abierto.</p>
+        <button type="button" class="btn btn-primary" id="btnEmptyNew" data-i18n="empty.newCanvas">Nuevo lienzo</button>
+      </div>
     </div>
   </div>
 

@@ -8,6 +8,7 @@ let noteHistoryTimer = null;
 let edgeNoteChanged = false;
 
 function edgeNodeName(id) {
+  if (!getActiveDocument()) return '?';
   const node = state.nodes.find(n => n.id === id);
   if (!node) return '?';
   if (typeof getNodeFields === 'function') {
@@ -28,7 +29,7 @@ function nodeAtPoint(clientX, clientY) {
 }
 
 function selectedEdge() {
-  if (!state.selectedEdgeId) return null;
+  if (!getActiveDocument() || !state.selectedEdgeId) return null;
   return state.edges.find(e => e.id === state.selectedEdgeId) || null;
 }
 

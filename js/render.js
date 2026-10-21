@@ -80,6 +80,7 @@ function buildEdgePath(x1, y1, x2, y2) {
 function renderEdges() {
   if (!edgesGroup) return;
   edgesGroup.innerHTML = '';
+  if (!getActiveDocument()) return;
 
   const segments = [];
   state.edges.forEach(edge => {
@@ -227,6 +228,13 @@ function renderCharFields() {
 }
 
 function updateTransform() {
+  if (!getActiveDocument()) {
+    if (nodesContainer) nodesContainer.style.transform = '';
+    if (edgesGroup) edgesGroup.removeAttribute('transform');
+    if (typeof updateActiveTabZoom === 'function') updateActiveTabZoom();
+    if (typeof updateEdgeEditor === 'function') updateEdgeEditor();
+    return;
+  }
   const transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
   nodesContainer.style.transform = transform;
   if (edgesGroup) edgesGroup.setAttribute('transform', `translate(${state.panX}, ${state.panY}) scale(${state.zoom})`);
@@ -235,6 +243,15 @@ function updateTransform() {
 }
 
 function render() {
+  if (!getActiveDocument()) {
+    if (nodesContainer) nodesContainer.innerHTML = '';
+    if (edgesGroup) edgesGroup.innerHTML = '';
+    if (poolContainer) poolContainer.innerHTML = '';
+    if (typeof updateCanvasEmptyState === 'function') updateCanvasEmptyState();
+    updateTransform();
+    return;
+  }
+  if (typeof updateCanvasEmptyState === 'function') updateCanvasEmptyState();
   renderNodes();
   renderEdges();
   renderPool();
@@ -312,6 +329,7 @@ function updateSelectionBox(box, left, top, width, height) {
 
 function nodesInScreenRect(left, top, width, height) {
   const ids = [];
+  if (!getActiveDocument()) return ids;
   state.nodes.forEach(node => {
     if (node.inPool) return;
     const el = document.getElementById('node-' + node.id);
@@ -327,7 +345,7 @@ function nodesInScreenRect(left, top, width, height) {
 }
 
 function startSelectionBox(e) {
-  if (!canvasWrapper || activeSelectionBox) return;
+  if (!canvasWrapper || activeSelectionBox || !getActiveDocument()) return;
   const rect = canvasWrapper.getBoundingClientRect();
   const startX = e.clientX - rect.left;
   const startY = e.clientY - rect.top;
@@ -364,6 +382,7 @@ function startSelectionBox(e) {
 function renderNodes() {
   if (!nodesContainer) return;
   nodesContainer.innerHTML = '';
+  if (!getActiveDocument()) return;
 
   state.nodes.forEach(node => {
     if (node.inPool) return;
@@ -484,6 +503,7 @@ function createPoolAddButton() {
 function renderPool() {
   if (!poolContainer) return;
   poolContainer.innerHTML = '';
+  if (!getActiveDocument()) return;
   const pooled = state.nodes.filter(n => n.inPool);
   if (pooled.length === 0) {
     poolContainer.innerHTML = `<span class="pool-empty">${t('drawer.empty')}</span>`;

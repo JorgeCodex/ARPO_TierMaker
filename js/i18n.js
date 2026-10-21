@@ -31,6 +31,14 @@ const TRANSLATIONS = {
     'tab.close': 'Cerrar lienzo',
     'tab.unsaved': 'Cambios sin guardar',
 
+    'window.minimize': 'Minimizar',
+    'window.maximize': 'Maximizar',
+    'window.restore': 'Restaurar',
+    'window.close': 'Cerrar',
+
+    'empty.noCanvas': 'No hay ningún lienzo abierto.',
+    'empty.newCanvas': 'Nuevo lienzo',
+
     'drawer.characters': 'Personajes',
     'drawer.hint': 'Haz clic o arrastra al tablero',
     'drawer.addChar': 'Agregar personaje',
@@ -125,6 +133,7 @@ const TRANSLATIONS = {
     'toast.edgeDeleted': 'Conexión eliminada',
     'toast.edgeExists': 'Ya existe una conexión entre estos personajes',
     'toast.connectHint': 'Haz clic en el personaje de destino (Esc para cancelar)',
+    'toast.noCanvas': 'No hay ningún lienzo abierto',
     'toast.noCanvasChars': 'No hay personajes en el lienzo',
     'toast.exportDone': 'Imagen exportada',
     'toast.exportErr': 'No se pudo exportar la imagen',
@@ -179,6 +188,14 @@ const TRANSLATIONS = {
     'tab.new': 'New canvas',
     'tab.close': 'Close canvas',
     'tab.unsaved': 'Unsaved changes',
+
+    'window.minimize': 'Minimize',
+    'window.maximize': 'Maximize',
+    'window.restore': 'Restore',
+    'window.close': 'Close',
+
+    'empty.noCanvas': 'No canvas is open.',
+    'empty.newCanvas': 'New canvas',
 
     'drawer.characters': 'Characters',
     'drawer.hint': 'Click or drag to the board',
@@ -274,6 +291,7 @@ const TRANSLATIONS = {
     'toast.edgeDeleted': 'Connection deleted',
     'toast.edgeExists': 'A connection already exists between these characters',
     'toast.connectHint': 'Click the target character (Esc to cancel)',
+    'toast.noCanvas': 'No canvas is open',
     'toast.noCanvasChars': 'There are no characters on the canvas',
     'toast.exportDone': 'Image exported',
     'toast.exportErr': 'Could not export the image',

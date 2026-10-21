@@ -59,6 +59,14 @@ const PROJECT_TYPES = [
   { description: 'Plantilla A.R.P.O.', accept: { 'application/json': ['.json'] } }
 ];
 
+function hasDesktopBridge() {
+  return !!(window.arpoDesktop && window.arpoDesktop.isElectron);
+}
+
+function desktopFileHandle(filePath, fileName) {
+  return { isElectron: true, path: filePath, name: fileName };
+}
+
 // La API de acceso al sistema de archivos permite SOBRESCRIBIR el archivo abierto.
 // Requiere contexto seguro (http/https o localhost) y no funcionar dentro de un iframe.
 function supportsFileSystemAccess() {
@@ -332,12 +340,24 @@ function restoreAutosaveDraft() {
 // --- Escribir / descargar ---
 
 async function writeToHandle(handle) {
+  const text = JSON.stringify(buildProjectData(), null, 2);
+  if (handle && handle.isElectron) {
+    const result = await window.arpoDesktop.saveProject(handle.path, text);
+    if (!result || !result.ok) {
+      throw new Error((result && result.error) || 'No se pudo guardar');
+    }
+    return;
+  }
   const writable = await handle.createWritable();
-  await writable.write(JSON.stringify(buildProjectData(), null, 2));
+  await writable.write(text);
   await writable.close();
 }
 
 function downloadProjectFile(name) {
+  if (!getActiveDocument()) {
+    showToast(t('toast.noCanvas'));
+    return;
+  }
   const filename = name || currentProjectName || 'tierlist.arpo.json';
   const blob = new Blob([JSON.stringify(buildProjectData(), null, 2)], { type: PROJECT_MIME });
   const url = URL.createObjectURL(blob);
@@ -351,6 +371,10 @@ function downloadProjectFile(name) {
 // --- Acciones principales ---
 
 async function saveProject() {
+  if (!getActiveDocument()) {
+    showToast(t('toast.noCanvas'));
+    return false;
+  }
   if (!projectFileHandle) return saveProjectAs();
   try {
     await writeToHandle(projectFileHandle);
@@ -367,6 +391,34 @@ async function saveProject() {
 }
 
 async function saveProjectAs() {
+  if (!getActiveDocument()) {
+    showToast(t('toast.noCanvas'));
+    return false;
+  }
+  if (hasDesktopBridge()) {
+    try {
+      const result = await window.arpoDesktop.saveProjectAs(
+        currentProjectName || 'tierlist.arpo.json',
+        JSON.stringify(buildProjectData(), null, 2)
+      );
+      if (result.canceled) return false;
+      if (!result.ok) {
+        console.error(result.error);
+        showToast(t('toast.saveErr'));
+        return false;
+      }
+      projectFileHandle = desktopFileHandle(result.filePath, result.fileName);
+      currentProjectName = result.fileName;
+      setProjectDirty(false);
+      scheduleAutosave();
+      showToast(t('toast.savedAs'));
+      return true;
+    } catch (err) {
+      console.error(err);
+      showToast(t('toast.saveErr'));
+      return false;
+    }
+  }
   if (!supportsFileSystemAccess()) {
     downloadProjectFile(currentProjectName);
     setProjectDirty(false);
@@ -398,6 +450,28 @@ async function saveProjectAs() {
 }
 
 async function openProject() {
+  if (hasDesktopBridge()) {
+    try {
+      const result = await window.arpoDesktop.openProject();
+      if (result.canceled) return;
+      if (!result.ok) {
+        console.error(result.error);
+        showToast(t('toast.openErr'));
+        return;
+      }
+      openProjectInNewDocument(
+        JSON.parse(result.text),
+        result.fileName,
+        desktopFileHandle(result.filePath, result.fileName)
+      );
+      scheduleAutosave();
+      showToast(t('toast.openOk'));
+    } catch (err) {
+      console.error(err);
+      showToast(t('toast.openErr'));
+    }
+    return;
+  }
   if (supportsFileSystemAccess()) {
     try {
       const [handle] = await window.showOpenFilePicker({ types: PROJECT_TYPES, multiple: false });
@@ -597,6 +671,10 @@ function drawNodeExport(ctx, node, img) {
 }
 
 async function exportCanvas(format) {
+  if (!getActiveDocument()) {
+    showToast(t('toast.noCanvas'));
+    return;
+  }
   const isPng = format === 'png';
   const nodes = state.nodes.filter(n => !n.inPool);
   if (nodes.length === 0) {
@@ -739,6 +817,7 @@ document.getElementById('importImagesInput')?.addEventListener('change', async (
   const files = Array.from(e.target.files || []).filter(f => f && f.type.startsWith('image/'));
   e.target.value = '';
   if (!files.length) return;
+  if (!getActiveDocument() && typeof createNewDocument === 'function') createNewDocument();
 
   const dataUrls = await Promise.all(files.map(file => new Promise(resolve => {
     const reader = new FileReader();

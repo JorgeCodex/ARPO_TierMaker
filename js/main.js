@@ -72,6 +72,42 @@ function bindMenuAction(id, action) {
   });
 }
 
+function setupWindowControls() {
+  if (!window.arpoDesktop || !window.arpoDesktop.isElectron) return;
+  document.documentElement.classList.add('is-electron');
+  document.body.classList.add('is-electron');
+
+  const minimize = document.getElementById('windowMinimize');
+  const maximize = document.getElementById('windowMaximize');
+  const close = document.getElementById('windowClose');
+  const setMaximized = (maximized) => {
+    const isMax = !!maximized;
+    document.body.classList.toggle('window-maximized', isMax);
+    if (maximize) {
+      const key = isMax ? 'window.restore' : 'window.maximize';
+      maximize.dataset.i18nTitle = key;
+      maximize.title = t(key);
+      maximize.setAttribute('aria-label', t(key));
+    }
+  };
+
+  minimize?.addEventListener('click', () => window.arpoDesktop.minimize());
+  maximize?.addEventListener('click', () => window.arpoDesktop.toggleMaximize());
+  close?.addEventListener('click', () => window.arpoDesktop.close());
+
+  if (typeof window.arpoDesktop.isMaximized === 'function') {
+    window.arpoDesktop.isMaximized().then(setMaximized).catch(() => {});
+  }
+  if (typeof window.arpoDesktop.onMaximizedChange === 'function') {
+    window.arpoDesktop.onMaximizedChange(setMaximized);
+  }
+
+  document.querySelector('header')?.addEventListener('dblclick', (e) => {
+    if (e.target.closest('button, input, .menubar, .window-controls')) return;
+    window.arpoDesktop.toggleMaximize();
+  });
+}
+
 // ============================================================================
 // PUNTO DE ENTRADA
 // ============================================================================
@@ -79,6 +115,7 @@ function bindMenuAction(id, action) {
 function init() {
   setupEventListeners();
   setupMenubar();
+  setupWindowControls();
   setupTabBar();
   ensureAtLeastOneDocument();
   const restored = typeof restoreAutosaveDraft === 'function' ? restoreAutosaveDraft() : false;
@@ -101,7 +138,7 @@ function toggleDrawer() {
 const MIN_ZOOM = 0.01;
 
 function zoomBy(factor) {
-  if (!canvasWrapper) return;
+  if (!canvasWrapper || !getActiveDocument()) return;
   const cx = canvasWrapper.clientWidth / 2;
   const cy = canvasWrapper.clientHeight / 2;
   const newZoom = Math.min(Math.max(MIN_ZOOM, state.zoom * factor), 2.5);
@@ -115,7 +152,7 @@ function zoomBy(factor) {
 }
 
 function centerView() {
-  if (!canvasWrapper) return;
+  if (!canvasWrapper || !getActiveDocument()) return;
   const nodes = state.nodes.filter(n => !n.inPool);
   if (nodes.length === 0) {
     state.zoom = 1;
@@ -147,6 +184,7 @@ function centerView() {
 }
 
 function autoLayout() {
+  if (!getActiveDocument()) return;
   const nodes = state.nodes.filter(n => !n.inPool);
   if (nodes.length === 0) {
     showToast(t('toast.noCanvasChars'));
@@ -345,6 +383,7 @@ function autoLayout() {
 
 // Elimina los personajes seleccionados (Editar > Eliminar personaje / Supr)
 function deleteSelectedNode() {
+  if (!getActiveDocument()) return;
   if (typeof deleteSelectedNodes === 'function') {
     deleteSelectedNodes();
   } else if (state.selectedNodeId) {
@@ -354,6 +393,7 @@ function deleteSelectedNode() {
 
 // "Suprimir todo": devuelve todos los personajes del lienzo a la barra
 function clearCanvasToPool() {
+  if (!getActiveDocument()) return;
   const onCanvas = state.nodes.filter(n => !n.inPool);
   if (onCanvas.length === 0) {
     showToast(t('toast.noCanvasChars'));
@@ -392,6 +432,7 @@ function setupEventListeners() {
 
     canvasWrapper.addEventListener('wheel', (e) => {
       e.preventDefault();
+      if (!getActiveDocument()) return;
       const rect = canvasWrapper.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
@@ -413,6 +454,7 @@ function setupEventListeners() {
     });
     canvasWrapper.addEventListener('drop', (e) => {
       e.preventDefault();
+      if (!getActiveDocument()) return;
       const nodeId = e.dataTransfer.getData('text/plain');
       if (!nodeId) return;
       const node = state.nodes.find(n => n.id === nodeId);

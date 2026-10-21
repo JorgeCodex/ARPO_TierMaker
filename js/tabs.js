@@ -89,9 +89,8 @@ function removeDocument(docId) {
   state.connectingFrom = null;
 
   if (!state.documents.length) {
-    const doc = createDocument();
-    state.documents.push(doc);
-    initDocumentBaseline(doc);
+    state.activeDocId = null;
+    if (typeof clearAutosaveDraft === 'function') clearAutosaveDraft();
   } else if (state.activeDocId === docId) {
     const next = state.documents[Math.min(index, state.documents.length - 1)];
     state.activeDocId = next.id;
@@ -219,11 +218,24 @@ function updateTabBar() {
       tabs.scrollLeft = right - tabs.clientWidth;
     }
   }
+  updateCanvasEmptyState();
   updateWindowTitle();
+}
+
+function updateCanvasEmptyState() {
+  const empty = document.getElementById('canvasEmpty');
+  if (!empty) return;
+  const hasDoc = state.documents.length > 0;
+  empty.hidden = hasDoc;
+  const wrapper = document.getElementById('canvasWrapper');
+  if (wrapper) wrapper.classList.toggle('is-empty', !hasDoc);
 }
 
 function setupTabBar() {
   document.getElementById('btnNewTab')?.addEventListener('click', () => {
+    createNewDocument();
+  });
+  document.getElementById('btnEmptyNew')?.addEventListener('click', () => {
     createNewDocument();
   });
 }

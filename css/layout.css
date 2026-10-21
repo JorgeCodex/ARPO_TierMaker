@@ -26,9 +26,74 @@ header {
   align-items: center;
   justify-content: flex-start;
   gap: 14px;
-  padding: 0 14px;
+  padding: 0 0 0 14px;
   position: relative;
   z-index: 50;
+  -webkit-app-region: drag;
+}
+
+header button,
+header input,
+.menubar,
+.menubar *,
+.window-controls,
+.window-controls * {
+  -webkit-app-region: no-drag;
+}
+
+.window-controls {
+  display: none;
+  align-self: stretch;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+html.is-electron .window-controls {
+  display: flex;
+}
+
+.window-control {
+  width: 46px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.window-control svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: square;
+}
+
+.window-control .icon-restore {
+  display: none;
+}
+
+body.window-maximized .window-control .icon-maximize {
+  display: none;
+}
+
+body.window-maximized .window-control .icon-restore {
+  display: block;
+}
+
+.window-control:hover {
+  background: rgba(127, 127, 127, 0.16);
+  color: var(--text-main);
+}
+
+.window-control-close:hover {
+  background: #e81123;
+  color: #ffffff;
 }
 
 .app-title {
@@ -402,6 +467,37 @@ header {
 
 .canvas-container:active {
   cursor: grabbing;
+}
+
+.canvas-container.is-empty,
+.canvas-container.is-empty:active {
+  cursor: default;
+}
+
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.canvas-empty[hidden] {
+  display: none;
+}
+
+.canvas-empty p {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.canvas-empty .btn {
+  pointer-events: auto;
 }
 
 .canvas-container.panning {

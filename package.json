@@ -1,0 +1,67 @@
+{
+  "name": "arpo-tier-maker",
+  "productName": "ARPO TierMaker",
+  "version": "1.0.0",
+  "description": "Editor de tier lists A.R.P.O.",
+  "main": "electron/main.js",
+  "author": "Jorge A. Ortiz",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable",
+    "dist:portable": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "44.9.2",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.arpo.tiermaker",
+    "productName": "ARPO TierMaker",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "index.html",
+      "css/**/*",
+      "js/**/*",
+      "assets/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ARPO TierMaker",
+      "artifactName": "ARPO-TierMaker-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "ARPO-TierMaker-${version}-portable.${ext}"
+    }
+  }
+}

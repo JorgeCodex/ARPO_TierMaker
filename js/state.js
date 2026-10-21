@@ -69,8 +69,9 @@ function saveState() {
 function updateUndoRedoButtons() {
   const btnUndo = document.getElementById('btnUndo');
   const btnRedo = document.getElementById('btnRedo');
-  if (btnUndo) btnUndo.disabled = state.historyIndex <= 0;
-  if (btnRedo) btnRedo.disabled = state.historyIndex >= state.history.length - 1;
+  const doc = getActiveDocument();
+  if (btnUndo) btnUndo.disabled = !doc || state.historyIndex <= 0;
+  if (btnRedo) btnRedo.disabled = !doc || state.historyIndex >= state.history.length - 1;
 }
 
 function restoreState(snapshot) {
@@ -84,7 +85,7 @@ function restoreState(snapshot) {
 }
 
 function undo() {
-  if (state.historyIndex <= 0) return;
+  if (!getActiveDocument() || state.historyIndex <= 0) return;
   state.isRestoring = true;
   state.historyIndex--;
   restoreState(state.history[state.historyIndex]);
@@ -96,7 +97,7 @@ function undo() {
 }
 
 function redo() {
-  if (state.historyIndex >= state.history.length - 1) return;
+  if (!getActiveDocument() || state.historyIndex >= state.history.length - 1) return;
   state.isRestoring = true;
   state.historyIndex++;
   restoreState(state.history[state.historyIndex]);
