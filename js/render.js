@@ -41,6 +41,17 @@ function getNodeCenter(node) {
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+function actionIcon(paths) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
+}
+
+const NODE_ACTION_ICONS = {
+  connect: actionIcon('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'),
+  edit: actionIcon('<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>'),
+  pool: actionIcon('<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M12 11v6"/><path d="m9 14 3 3 3-3"/>'),
+  trash: actionIcon('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>')
+};
+
 // Construye la ruta recta añadiendo vértices intermedios equiespaciados,
 // de modo que marker-mid dibuje el patrón de flechitas a lo largo de la línea.
 function buildEdgePath(x1, y1, x2, y2) {
@@ -95,8 +106,8 @@ function renderEdges() {
     path.setAttribute('class',
       `arpo-edge edge-${type}${s.edge.id === state.selectedEdgeId ? ' selected' : ''}`);
     path.setAttribute('id', `edge-${s.edge.id}`);
-    // El azul representa igualdad: sin flechas de dirección.
-    if (type !== 'blue') {
+    // Azul (igualdad) y morado (indeterminada): sin flechas de dirección.
+    if (type !== 'blue' && type !== 'purple') {
       path.setAttribute('marker-mid', `url(#arrow-${type})`);
     }
     path.addEventListener('click', (e) => {
@@ -380,10 +391,10 @@ function renderNodes() {
 
     nodeEl.innerHTML = `
       <div class="node-actions">
-        <button class="node-action-btn connect" title="${typeof t === 'function' ? t('edge.connect') : 'Conectar'}">🔗</button>
-        <button class="node-action-btn edit" title="Editar" onclick="event.stopPropagation(); window.editNode('${node.id}')">✎</button>
-        <button class="node-action-btn" title="Enviar al banco" onclick="event.stopPropagation(); window.sendToPool('${node.id}')">📥</button>
-        <button class="node-action-btn" title="Eliminar" onclick="event.stopPropagation(); window.deleteNode('${node.id}')">🗑</button>
+        <button class="node-action-btn connect" title="${typeof t === 'function' ? t('edge.connect') : 'Conectar'}">${NODE_ACTION_ICONS.connect}</button>
+        <button class="node-action-btn edit" title="${typeof t === 'function' ? t('char.titleEdit') : 'Editar'}" onclick="event.stopPropagation(); window.editNode('${node.id}')">${NODE_ACTION_ICONS.edit}</button>
+        <button class="node-action-btn send" title="${typeof t === 'function' ? t('char.sendToPool') : 'Enviar al banco'}" onclick="event.stopPropagation(); window.sendToPool('${node.id}')">${NODE_ACTION_ICONS.pool}</button>
+        <button class="node-action-btn delete" title="${typeof t === 'function' ? t('char.delete') : 'Eliminar'}" onclick="event.stopPropagation(); window.deleteNode('${node.id}')">${NODE_ACTION_ICONS.trash}</button>
       </div>
       <div class="node-image-box">
         ${hasImage ? imgHtml : `<div class="node-fields inside">${fieldsHtml}</div>`}
@@ -400,7 +411,7 @@ function renderNodes() {
     });
 
     nodeEl.addEventListener('mousedown', (e) => {
-      if (e.target.classList.contains('node-action-btn')) return;
+      if (e.target.closest && e.target.closest('.node-action-btn')) return;
       e.stopPropagation();
       startDraggingNode(node, e);
     });
@@ -496,8 +507,8 @@ function renderPool() {
         ${imgHtml}
         <div class="pool-fields">${fieldsHtml}</div>
         <div class="pool-card-actions">
-          <button class="pool-action-btn edit" title="${t('char.titleEdit')}">✎</button>
-          <button class="pool-action-btn delete" title="${t('char.delete')}">🗑</button>
+          <button class="pool-action-btn edit" title="${t('char.titleEdit')}">${NODE_ACTION_ICONS.edit}</button>
+          <button class="pool-action-btn delete" title="${t('char.delete')}">${NODE_ACTION_ICONS.trash}</button>
         </div>
       </div>
     `;

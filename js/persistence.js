@@ -672,8 +672,8 @@ async function exportCanvas(format) {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
 
-    // El azul representa igualdad: sin flechas de dirección.
-    if (edge.type !== 'blue') {
+    // Azul (igualdad) y morado (indeterminada): sin flechas de dirección.
+    if (edge.type !== 'blue' && edge.type !== 'purple') {
       drawChevrons(ctx, a.x, a.y, b.x, b.y, arrowColor);
     }
 

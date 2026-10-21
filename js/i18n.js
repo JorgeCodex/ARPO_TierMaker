@@ -52,6 +52,7 @@ const TRANSLATIONS = {
     'char.fieldPlaceholder': 'Campo adicional',
     'char.removeField': 'Quitar campo',
     'char.delete': 'Eliminar personaje',
+    'char.sendToPool': 'Enviar al banco',
     'char.unnamed': 'Sin nombre',
 
     'common.cancel': 'Cancelar',
@@ -200,6 +201,7 @@ const TRANSLATIONS = {
     'char.fieldPlaceholder': 'Extra field',
     'char.removeField': 'Remove field',
     'char.delete': 'Delete character',
+    'char.sendToPool': 'Send to bank',
     'char.unnamed': 'Unnamed',
 
     'common.cancel': 'Cancel',
