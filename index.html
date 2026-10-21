@@ -27,37 +27,237 @@
 <body>
 
   <header>
-    <div class="brand">
-      <div class="brand-logo">A</div>
-      <h1>A.R.P.O. TierMaker</h1>
-      <span class="brand-badge">v2.0</span>
-    </div>
-    <div class="toolbar-actions">
-      <button class="btn btn-icon" id="btnUndo" data-i18n-title="header.undo" title="Deshacer (Ctrl+Z)">↶</button>
-      <button class="btn btn-icon" id="btnRedo" data-i18n-title="header.redo" title="Rehacer (Ctrl+Y)">↷</button>
-      <div style="width:1px; height:22px; background:var(--border-card); margin:0 8px;"></div>
-      <div class="split-btn" id="saveGroup">
-        <button class="btn btn-primary" id="btnSave" data-i18n-title="header.save" title="Guardar (Ctrl+S)"><span data-i18n="header.save">Guardar</span></button>
-        <button class="btn btn-primary split-toggle" id="btnSaveMenu" data-i18n-title="header.saveMenu" title="Más opciones de guardado">▾</button>
-        <div class="split-menu" id="saveMenu">
-          <button class="split-menu-item" id="btnSaveAs" data-i18n="header.saveAs">Guardar como…</button>
+    <h1 class="app-title">A.R.P.O. TierMaker</h1>
+    <nav class="menubar" id="menubar">
+      <div class="menu">
+        <button class="menu-label" data-i18n="menu.file">Archivo</button>
+        <div class="menu-dropdown">
+          <button class="menu-entry" id="menuFileNew">
+            <span data-i18n="menu.new">Nuevo</span>
+          </button>
+          <button class="menu-entry" id="menuFileOpen">
+            <span data-i18n="menu.open">Abrir</span>
+            <span class="menu-keys"><kbd>Ctrl</kbd><kbd>O</kbd></span>
+          </button>
+          <button class="menu-entry" id="menuFileClose">
+            <span data-i18n="menu.close">Cerrar</span>
+          </button>
+          <div class="menu-sep"></div>
+          <button class="menu-entry" id="menuFileSave">
+            <span data-i18n="menu.save">Guardar</span>
+            <span class="menu-keys"><kbd>Ctrl</kbd><kbd>S</kbd></span>
+          </button>
+          <button class="menu-entry" id="menuFileSaveAs">
+            <span data-i18n="menu.saveAs">Guardar como…</span>
+          </button>
+          <div class="menu-submenu">
+            <button class="menu-entry submenu-trigger">
+              <span data-i18n="menu.exportAs">Exportar como</span>
+              <span class="submenu-arrow">▸</span>
+            </button>
+            <div class="menu-dropdown submenu-panel">
+              <button class="menu-entry" id="menuFileExportPNG">
+                <span>PNG</span>
+              </button>
+              <button class="menu-entry" id="menuFileExportJPG">
+                <span>JPG</span>
+              </button>
+            </div>
+          </div>
+          <div class="menu-sep"></div>
+          <button class="menu-entry" id="menuFileImport">
+            <span data-i18n="menu.import">Importar…</span>
+          </button>
         </div>
       </div>
-      <button class="btn" id="btnOpen" data-i18n-title="header.open" title="Abrir una plantilla guardada"><span data-i18n="header.open">Abrir</span></button>
-      <button class="btn" id="btnExportJPG" data-i18n-title="header.jpg" title="Guardar el lienzo como imagen JPG"><span data-i18n="header.jpg">Guardar como JPG</span></button>
-      <div style="width:1px; height:22px; background:var(--border-card); margin:0 8px;"></div>
-      <button class="btn btn-icon" id="btnAutoLayout" data-i18n-title="header.autoLayout" title="Autoalinear por jerarquía">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="6" y="1" width="4" height="3" rx="1"/>
-          <rect x="1.5" y="12" width="4" height="3" rx="1"/>
-          <rect x="10.5" y="12" width="4" height="3" rx="1"/>
-          <path d="M8 4v4M3.5 12V8h9v4"/>
-        </svg>
-      </button>
-      <button class="btn btn-icon" id="btnSettings" data-i18n-title="header.settings" title="Ajustes (Ctrl+,)">⚙</button>
-      <input type="file" id="fileInput" accept=".json,application/json" style="display:none;">
-    </div>
+      <div class="menu">
+        <button class="menu-label" data-i18n="menu.edit">Editar</button>
+        <div class="menu-dropdown">
+          <button class="menu-entry" id="menuEditUndo">
+            <span data-i18n="menu.undo">Deshacer</span>
+            <span class="menu-keys"><kbd>Ctrl</kbd><kbd>Z</kbd></span>
+          </button>
+          <button class="menu-entry" id="menuEditRedo">
+            <span data-i18n="menu.redo">Rehacer</span>
+            <span class="menu-keys"><kbd>Ctrl</kbd><kbd>Y</kbd></span>
+          </button>
+          <div class="menu-sep"></div>
+          <button class="menu-entry" id="menuEditDelete">
+            <span data-i18n="menu.deleteChar">Eliminar personaje</span>
+            <span class="menu-keys"><kbd>Supr</kbd></span>
+          </button>
+          <div class="menu-sep"></div>
+          <button class="menu-entry" id="menuEditClear">
+            <span data-i18n="menu.clearAll">Suprimir todo</span>
+          </button>
+          <button class="menu-entry" id="menuEditAlign">
+            <span data-i18n="menu.autoAlign">Autoalinear</span>
+          </button>
+        </div>
+      </div>
+      <div class="menu">
+        <button class="menu-label" data-i18n="menu.settings">Ajustes</button>
+        <div class="menu-dropdown">
+          <button class="menu-entry pref-toggle" data-pref-toggle="confirmDelete">
+            <span class="menu-check"></span>
+            <span data-i18n="settings.confirmDelete">Confirmar antes de eliminar</span>
+          </button>
+          <button class="menu-entry pref-toggle" data-pref-toggle="autoSave">
+            <span class="menu-check"></span>
+            <span data-i18n="settings.autoSave">Recuperación automática</span>
+          </button>
+          <div class="menu-sep"></div>
+          <button class="menu-entry pref-toggle" data-pref-toggle="includeNotesInExport">
+            <span class="menu-check"></span>
+            <span data-i18n="settings.includeNotes">Incluir notas en el export</span>
+          </button>
+          <div class="menu-submenu">
+            <button class="menu-entry submenu-trigger">
+              <span data-i18n="settings.exportScale">Escala de exportación</span>
+              <span class="submenu-arrow">▸</span>
+            </button>
+            <div class="menu-dropdown submenu-panel">
+              <button class="menu-entry pref-value" data-pref-value="exportScale" data-value="1">
+                <span class="menu-check"></span>
+                <span>1x</span>
+              </button>
+              <button class="menu-entry pref-value" data-pref-value="exportScale" data-value="2">
+                <span class="menu-check"></span>
+                <span>2x</span>
+              </button>
+              <button class="menu-entry pref-value" data-pref-value="exportScale" data-value="3">
+                <span class="menu-check"></span>
+                <span>3x</span>
+              </button>
+            </div>
+          </div>
+          <div class="menu-submenu">
+            <button class="menu-entry submenu-trigger">
+              <span data-i18n="settings.nodeSize">Tamaño de personajes</span>
+              <span class="submenu-arrow">▸</span>
+            </button>
+            <div class="menu-dropdown submenu-panel">
+              <button class="menu-entry pref-value" data-pref-value="nodeSize" data-value="0.75">
+                <span class="menu-check"></span>
+                <span>75 %</span>
+              </button>
+              <button class="menu-entry pref-value" data-pref-value="nodeSize" data-value="1">
+                <span class="menu-check"></span>
+                <span>100 %</span>
+              </button>
+              <button class="menu-entry pref-value" data-pref-value="nodeSize" data-value="1.25">
+                <span class="menu-check"></span>
+                <span>125 %</span>
+              </button>
+              <button class="menu-entry pref-value" data-pref-value="nodeSize" data-value="1.5">
+                <span class="menu-check"></span>
+                <span>150 %</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="menu">
+        <button class="menu-label" data-i18n="menu.interface">Interfaz</button>
+        <div class="menu-dropdown">
+          <button class="menu-entry" id="menuInterfaceDrawer">
+            <span data-i18n="sc.toggleDrawer">Mostrar / Ocultar personajes</span>
+            <span class="menu-keys"><kbd>Ctrl</kbd><kbd>B</kbd></span>
+          </button>
+          <button class="menu-entry pref-toggle" data-pref-toggle="showNotes">
+            <span class="menu-check"></span>
+            <span data-i18n="settings.showNotes">Mostrar notas en el lienzo</span>
+          </button>
+          <div class="menu-sep"></div>
+          <div class="menu-submenu">
+            <button class="menu-entry submenu-trigger">
+              <span data-i18n="settings.lineWidth">Grosor de líneas</span>
+              <span class="submenu-arrow">▸</span>
+            </button>
+            <div class="menu-dropdown submenu-panel">
+              <button class="menu-entry pref-value" data-pref-value="lineWidth" data-value="thin">
+                <span class="menu-check"></span>
+                <span data-i18n="lineWidth.thin">Fino</span>
+              </button>
+              <button class="menu-entry pref-value" data-pref-value="lineWidth" data-value="normal">
+                <span class="menu-check"></span>
+                <span data-i18n="lineWidth.normal">Normal</span>
+              </button>
+              <button class="menu-entry pref-value" data-pref-value="lineWidth" data-value="thick">
+                <span class="menu-check"></span>
+                <span data-i18n="lineWidth.thick">Grueso</span>
+              </button>
+            </div>
+          </div>
+          <div class="menu-submenu">
+            <button class="menu-entry submenu-trigger">
+              <span data-i18n="menu.view">Vista</span>
+              <span class="submenu-arrow">▸</span>
+            </button>
+            <div class="menu-dropdown submenu-panel">
+              <button class="menu-entry" id="menuViewCenter">
+                <span data-i18n="menu.centerView">Centrar vista</span>
+                <span class="menu-keys"><kbd>0</kbd></span>
+              </button>
+              <button class="menu-entry" id="menuViewZoomIn">
+                <span data-i18n="menu.zoomIn">Acercar</span>
+                <span class="menu-keys"><kbd>+</kbd></span>
+              </button>
+              <button class="menu-entry" id="menuViewZoomOut">
+                <span data-i18n="menu.zoomOut">Alejar</span>
+                <span class="menu-keys"><kbd>−</kbd></span>
+              </button>
+            </div>
+          </div>
+          <div class="menu-sep"></div>
+          <div class="menu-submenu">
+            <button class="menu-entry submenu-trigger">
+              <span data-i18n="settings.theme">Tema</span>
+              <span class="menu-keys"><kbd>T</kbd></span>
+              <span class="submenu-arrow">▸</span>
+            </button>
+            <div class="menu-dropdown submenu-panel">
+              <button class="menu-entry theme-option" data-theme-option="light">
+                <span class="menu-check"></span>
+                <span data-i18n="settings.themeLight">Claro</span>
+              </button>
+              <button class="menu-entry theme-option" data-theme-option="dark">
+                <span class="menu-check"></span>
+                <span data-i18n="settings.themeDark">Oscuro</span>
+              </button>
+            </div>
+          </div>
+          <div class="menu-submenu">
+            <button class="menu-entry submenu-trigger">
+              <span data-i18n="settings.language">Idioma</span>
+              <span class="submenu-arrow">▸</span>
+            </button>
+            <div class="menu-dropdown submenu-panel">
+              <button class="menu-entry lang-option" data-lang-option="es">
+                <span class="menu-check"></span>
+                <span>Español</span>
+              </button>
+              <button class="menu-entry lang-option" data-lang-option="en">
+                <span class="menu-check"></span>
+                <span>English</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="menu menu-action">
+        <button class="menu-label" id="menuHelpAbout" data-i18n="menu.help">Ayuda</button>
+      </div>
+    </nav>
+    <input type="file" id="fileInput" accept=".json,application/json" style="display:none;">
+    <input type="file" id="importImagesInput" accept="image/*" multiple style="display:none;">
   </header>
+
+  <!-- Pestañas de lienzos (varios documentos abiertos a la vez) -->
+  <div class="tab-bar" id="tabBar">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <button type="button" class="tab-new" id="btnNewTab" data-i18n-title="tab.new" title="Nuevo lienzo">+</button>
+  </div>
 
   <div class="main">
     <!-- Canvas Container -->
@@ -91,9 +291,6 @@
       <span data-i18n="drawer.characters">Personajes</span>
     </button>
     <div class="drawer-body">
-      <div class="drawer-actions">
-        <button class="btn-add-char" id="btnAddChar" data-i18n-title="drawer.addChar" title="Agregar personaje">+</button>
-      </div>
       <div class="pool-items" id="poolContainer"></div>
     </div>
   </div>
@@ -154,9 +351,13 @@
           <div id="cropOverlay" class="crop-overlay"></div>
         </div>
         <div class="crop-controls">
-          <label class="crop-shape-toggle">
-            <input type="checkbox" id="cropShapeRound"> <span data-i18n="crop.round">Redondo</span>
-          </label>
+          <div class="crop-formats">
+            <span class="crop-format-label" data-i18n="crop.format">Formato</span>
+            <button type="button" class="crop-format-btn active" data-crop-format="square" data-i18n="crop.square">Cuadrado</button>
+            <button type="button" class="crop-format-btn" data-crop-format="round" data-i18n="crop.round">Redondo</button>
+            <button type="button" class="crop-format-btn" data-crop-format="wide" data-i18n="crop.wide">16:9</button>
+            <button type="button" class="crop-format-btn" data-crop-format="standard" data-i18n="crop.standard">4:3</button>
+          </div>
           <div class="crop-zoom">
             <button type="button" class="crop-zoom-btn" id="btnZoomOut" data-i18n-title="crop.zoomOut" title="Alejar">−</button>
             <button type="button" class="crop-zoom-btn" id="btnZoomIn" data-i18n-title="crop.zoomIn" title="Acercar">+</button>
@@ -171,113 +372,71 @@
     </div>
   </div>
 
-  <!-- MODAL: Conexión entre personajes -->
-  <div class="modal-backdrop" id="modalEdge">
+  <!-- MODAL: Cambios sin guardar -->
+  <div class="modal-backdrop" id="modalUnsaved">
     <div class="modal-window">
       <div class="modal-header">
-        <h2 id="modalEdgeTitle" data-i18n="edge.titleNew">Nueva Conexión</h2>
-        <button class="modal-close" onclick="closeModal('modalEdge')">&times;</button>
+        <h2 data-i18n="unsaved.title">Cambios sin guardar</h2>
       </div>
-      <div class="form-group">
-        <label id="modalEdgeSubtitle" data-i18n="edge.relation">Relación</label>
-        <div class="edge-type-options" id="edgeTypeOptions">
-          <button type="button" class="edge-type-btn" data-type="green">
-            <span class="edge-type-swatch swatch-green"></span>
-            <span class="edge-type-text">
-              <span class="edge-type-name" data-i18n="edge.green.name">Verde</span>
-              <span class="edge-type-desc" data-i18n="edge.green.desc">Superioridad 100% Objetiva</span>
-            </span>
-          </button>
-          <button type="button" class="edge-type-btn" data-type="orange">
-            <span class="edge-type-swatch swatch-orange"></span>
-            <span class="edge-type-text">
-              <span class="edge-type-name" data-i18n="edge.orange.name">Naranja</span>
-              <span class="edge-type-desc" data-i18n="edge.orange.desc">Superioridad Probable (Indicios)</span>
-            </span>
-          </button>
-          <button type="button" class="edge-type-btn" data-type="blue">
-            <span class="edge-type-swatch swatch-blue"></span>
-            <span class="edge-type-text">
-              <span class="edge-type-name" data-i18n="edge.blue.name">Azul</span>
-              <span class="edge-type-desc" data-i18n="edge.blue.desc">Empate / Igualdad de Poder</span>
-            </span>
-          </button>
-          <button type="button" class="edge-type-btn" data-type="purple">
-            <span class="edge-type-swatch swatch-purple"></span>
-            <span class="edge-type-text">
-              <span class="edge-type-name" data-i18n="edge.purple.name">Morado</span>
-              <span class="edge-type-desc" data-i18n="edge.purple.desc">Indeterminada (Regla 4)</span>
-            </span>
-          </button>
-        </div>
-      </div>
-      <div class="form-group">
-        <label data-i18n="edge.note">Nota (opcional)</label>
-        <input type="text" id="edgeNoteInput" class="form-control" data-i18n-placeholder="edge.notePlaceholder" placeholder="Ej. Saga de Majin Buu">
-      </div>
+      <p class="modal-message" data-i18n="unsaved.message">El lienzo actual tiene cambios sin guardar. ¿Quieres guardarlos antes de continuar?</p>
       <div class="modal-footer">
-        <button class="btn btn-danger" id="btnEdgeDelete" style="display:none;" data-i18n="edge.delete">Eliminar</button>
-        <button class="btn" onclick="closeModal('modalEdge')" data-i18n="common.cancel">Cancelar</button>
-        <button class="btn btn-primary" id="btnEdgeSave" data-i18n="common.save">Guardar</button>
+        <button class="btn" id="btnUnsavedCancel" data-i18n="common.cancel">Cancelar</button>
+        <button class="btn btn-danger" id="btnUnsavedNo" data-i18n="unsaved.dontSave">No guardar</button>
+        <button class="btn btn-primary" id="btnUnsavedSave" data-i18n="common.save">Guardar</button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: Ajustes -->
-  <div class="modal-backdrop" id="modalSettings">
+  <!-- MODAL: Ayuda / ¿Qué es A.R.P.O.? -->
+  <div class="modal-backdrop" id="modalAbout">
     <div class="modal-window settings-window">
       <div class="modal-header">
-        <h2 data-i18n="settings.title">Ajustes</h2>
-        <button class="modal-close" onclick="closeModal('modalSettings')">&times;</button>
+        <h2 data-i18n="settings.about">¿Qué es A.R.P.O.?</h2>
+        <button class="modal-close" onclick="closeModal('modalAbout')">&times;</button>
       </div>
       <div class="settings-body">
-        <div class="settings-group">
-          <label data-i18n="settings.theme">Tema</label>
-          <div class="segmented" id="themeSegmented">
-            <button class="segmented-btn" data-theme-value="light" data-i18n="settings.themeLight">Claro</button>
-            <button class="segmented-btn" data-theme-value="dark" data-i18n="settings.themeDark">Oscuro</button>
-          </div>
-        </div>
-        <div class="settings-group">
-          <label data-i18n="settings.language">Idioma</label>
-          <div class="segmented" id="langSegmented">
-            <button class="segmented-btn" data-lang-value="es">Español</button>
-            <button class="segmented-btn" data-lang-value="en">English</button>
-          </div>
-        </div>
-        <div class="settings-group">
-          <label data-i18n="settings.about">¿Qué es A.R.P.O.?</label>
-          <div class="settings-about">
-            <p class="about-title" data-i18n="about.title">Árbol de Relaciones de Poder Objetivas</p>
-            <div class="rule-line" data-i18n-html="about.rule1">1. Si dos personajes están unidos por una línea VERDE, el de arriba es claramente superior (verdad objetiva).</div>
-            <div class="rule-line" data-i18n-html="about.rule2">2. Si dos personajes están unidos por una línea NARANJA, el de arriba es probablemente superior (subjetivo).</div>
-            <div class="rule-line" data-i18n-html="about.rule3">3. Si dos personajes están unidos por una línea AZUL, están prácticamente igualados en nivel de poder.</div>
-            <div class="rule-line" data-i18n-html="about.rule4">4. Si dos personajes están en alturas iguales o diferentes y NO están unidos por líneas o sucesiones de líneas unidireccionales, su relación de poder es indeterminada y abierta a la subjetividad.</div>
-          </div>
-        </div>
-        <div class="settings-group">
-          <label data-i18n="settings.shortcuts">Atajos de teclado</label>
-          <div class="shortcuts-list">
-            <div class="shortcut-row"><span data-i18n="sc.undo">Deshacer</span><span class="keys"><kbd>Ctrl</kbd><kbd>Z</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.redo">Rehacer</span><span class="keys"><kbd>Ctrl</kbd><kbd>Y</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.save">Guardar</span><span class="keys"><kbd>Ctrl</kbd><kbd>S</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.open">Abrir</span><span class="keys"><kbd>Ctrl</kbd><kbd>O</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.settings">Abrir ajustes</span><span class="keys"><kbd>Ctrl</kbd><kbd>,</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.toggleDrawer">Mostrar/ocultar personajes</span><span class="keys"><kbd>Ctrl</kbd><kbd>B</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.theme">Cambiar tema</span><span class="keys"><kbd>T</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.delete">Eliminar personaje</span><span class="keys"><kbd>Supr</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.centerView">Centrar vista</span><span class="keys"><kbd>0</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.pan">Mover el lienzo</span><span class="keys"><kbd>Espacio</kbd><kbd>+ Arrastrar</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.zoom">Zoom</span><span class="keys"><kbd>Rueda</kbd></span></div>
-            <div class="shortcut-row"><span data-i18n="sc.escape">Cerrar / deseleccionar</span><span class="keys"><kbd>Esc</kbd></span></div>
-          </div>
+        <div class="settings-about">
+          <p class="about-title" data-i18n="about.title">Árbol de Relaciones de Poder Objetivas</p>
+          <div class="rule-line" data-i18n-html="about.rule1">1. Si dos personajes están unidos por una línea VERDE, el de arriba es claramente superior (verdad objetiva).</div>
+          <div class="rule-line" data-i18n-html="about.rule2">2. Si dos personajes están unidos por una línea NARANJA, el de arriba es probablemente superior (subjetivo).</div>
+          <div class="rule-line" data-i18n-html="about.rule3">3. Si dos personajes están unidos por una línea AZUL, están prácticamente igualados en nivel de poder.</div>
+          <div class="rule-line" data-i18n-html="about.rule4">4. Si dos personajes están en alturas iguales o diferentes y NO están unidos por líneas o sucesiones de líneas unidireccionales, su relación de poder es indeterminada y abierta a la subjetividad.</div>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Editor flotante de la conexión seleccionada -->
+  <div class="edge-editor" id="edgeEditor" style="display:none;">
+    <div class="edge-editor-head">
+      <span class="edge-editor-title" id="edgeEditorTitle"></span>
+      <button type="button" class="edge-editor-close" id="edgeEditorClose" data-i18n-title="edge.close" title="Deseleccionar conexión">&times;</button>
+    </div>
+    <div class="edge-editor-types" id="edgeEditorTypes">
+      <button type="button" class="edge-editor-type" data-type="green" data-i18n-title="edge.green.desc" title="Superioridad 100% Objetiva">
+        <span class="edge-type-swatch swatch-green"></span><span data-i18n="edge.green.name">Verde</span>
+      </button>
+      <button type="button" class="edge-editor-type" data-type="orange" data-i18n-title="edge.orange.desc" title="Superioridad Probable (Indicios)">
+        <span class="edge-type-swatch swatch-orange"></span><span data-i18n="edge.orange.name">Naranja</span>
+      </button>
+      <button type="button" class="edge-editor-type" data-type="blue" data-i18n-title="edge.blue.desc" title="Empate / Igualdad de Poder">
+        <span class="edge-type-swatch swatch-blue"></span><span data-i18n="edge.blue.name">Azul</span>
+      </button>
+      <button type="button" class="edge-editor-type" data-type="purple" data-i18n-title="edge.purple.desc" title="Indeterminada (Regla 4)">
+        <span class="edge-type-swatch swatch-purple"></span><span data-i18n="edge.purple.name">Morado</span>
+      </button>
+    </div>
+    <button type="button" class="edge-editor-reverse" id="edgeEditorReverse">
+      <span class="edge-editor-reverse-icon">⇅</span>
+      <span data-i18n="edge.reverse">Invertir dirección</span>
+    </button>
+    <textarea id="edgeEditorNote" class="form-control edge-editor-note" rows="2" maxlength="160" data-i18n-placeholder="edge.notePlaceholder" placeholder="Ej. Saga de Majin Buu"></textarea>
+    <button type="button" class="edge-editor-delete" id="edgeEditorDelete" data-i18n="edge.deleteConnection">Eliminar conexión</button>
   </div>
 
   <script src="js/state.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/tabs.js"></script>
   <script src="js/render.js"></script>
   <script src="js/cropper.js"></script>
   <script src="js/connections.js"></script>

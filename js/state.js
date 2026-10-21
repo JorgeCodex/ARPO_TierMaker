@@ -2,23 +2,45 @@
 // ESTADO DE LA APLICACIÓN
 // ============================================================================
 
+// Cada lienzo es un documento independiente (como las pestañas de Photoshop):
+// guarda sus propios personajes, conexiones, vista, selección, historial y archivo.
 const state = {
-  nodes: [],
-  edges: [],
-  zoom: 1,
-  panX: 0,
-  panY: 0,
-  selectedNodeId: null,
+  documents: [],
+  activeDocId: null,
+  // Estado transitorio de la interfaz (no es por documento)
   connectingFrom: null,
   isPanning: false,
   startPanX: 0,
   startPanY: 0,
-  // Historial para deshacer/rehacer
-  history: [],
-  historyIndex: -1,
-  maxHistory: 50,
+  maxHistory: 100,
   isRestoring: false
 };
+
+function getActiveDocument() {
+  if (!state.documents.length) return null;
+  let doc = state.documents.find(d => d.id === state.activeDocId);
+  if (!doc) {
+    doc = state.documents[0];
+    state.activeDocId = doc.id;
+  }
+  return doc;
+}
+
+// Propiedades que viven dentro del documento activo. Así todo el código que ya
+// usaba state.nodes / state.history sigue funcionando sin cambios.
+['nodes', 'edges', 'zoom', 'panX', 'panY', 'selectedNodeId', 'selectedNodeIds', 'selectedEdgeId', 'history', 'historyIndex']
+  .forEach(name => {
+    Object.defineProperty(state, name, {
+      get() {
+        const doc = getActiveDocument();
+        return doc ? doc[name] : undefined;
+      },
+      set(value) {
+        const doc = getActiveDocument();
+        if (doc) doc[name] = value;
+      }
+    });
+  });
 
 // ============================================================================
 // HISTORIAL (DESHACER / REHACER)
@@ -29,10 +51,8 @@ function saveState() {
   const snapshot = JSON.parse(JSON.stringify({
     nodes: state.nodes,
     edges: state.edges,
-    zoom: state.zoom,
-    panX: state.panX,
-    panY: state.panY,
-    selectedNodeId: state.selectedNodeId
+    selectedNodeId: state.selectedNodeId,
+    selectedNodeIds: state.selectedNodeIds || []
   }));
   state.history = state.history.slice(0, state.historyIndex + 1);
   state.history.push(snapshot);
@@ -43,6 +63,7 @@ function saveState() {
     state.historyIndex++;
   }
   updateUndoRedoButtons();
+  if (typeof markProjectDirty === 'function') markProjectDirty();
 }
 
 function updateUndoRedoButtons() {
@@ -56,10 +77,10 @@ function restoreState(snapshot) {
   const copy = JSON.parse(JSON.stringify(snapshot));
   state.nodes = copy.nodes;
   state.edges = copy.edges;
-  state.zoom = copy.zoom;
-  state.panX = copy.panX;
-  state.panY = copy.panY;
   state.selectedNodeId = copy.selectedNodeId || null;
+  state.selectedNodeIds = Array.isArray(copy.selectedNodeIds)
+    ? copy.selectedNodeIds
+    : (copy.selectedNodeId ? [copy.selectedNodeId] : []);
 }
 
 function undo() {
@@ -69,6 +90,7 @@ function undo() {
   restoreState(state.history[state.historyIndex]);
   state.isRestoring = false;
   if (typeof render === 'function') render();
+  if (typeof markProjectDirty === 'function') markProjectDirty();
   updateUndoRedoButtons();
   showToast(t('toast.undone'));
 }
@@ -80,6 +102,7 @@ function redo() {
   restoreState(state.history[state.historyIndex]);
   state.isRestoring = false;
   if (typeof render === 'function') render();
+  if (typeof markProjectDirty === 'function') markProjectDirty();
   updateUndoRedoButtons();
   showToast(t('toast.redone'));
 }

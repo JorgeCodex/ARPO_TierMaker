@@ -7,6 +7,7 @@ const path = require('path');
 const { exec } = require('child_process');
 
 const root = __dirname;
+const HOST = '127.0.0.1';
 const START_PORT = 8080;
 const MAX_PORT = 8100;
 
@@ -70,27 +71,29 @@ function openBrowser(url) {
     path.join(pf, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
     path.join(pf86, 'Microsoft', 'Edge', 'Application', 'msedge.exe')
   ]);
-  if (exe) {
-    exec(`start "" "${exe}" "${url}"`);
-  } else {
-    exec(`start "" "${url}"`);
-  }
+  const cmd = exe ? `start "" "${exe}" "${url}"` : `start "" "${url}"`;
+  exec(cmd, () => { /* si falla, el usuario puede abrir la URL manualmente */ });
 }
 
 function start(port) {
   const server = http.createServer(handleRequest);
   server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE' && port < MAX_PORT) {
+    if ((err.code === 'EADDRINUSE' || err.code === 'EACCES') && port < MAX_PORT) {
       start(port + 1);
     } else {
       console.error('No se pudo iniciar el servidor:', err.message);
+      console.error('Prueba a cerrar otras aplicaciones que usen los puertos ' + START_PORT + '-' + MAX_PORT + '.');
       process.exit(1);
     }
   });
-  server.listen(port, () => {
-    const url = `http://localhost:${port}`;
-    console.log(`A.R.P.O. TierMaker disponible en ${url}`);
-    console.log('Cierra esta ventana para detener el servidor.');
+  server.listen(port, HOST, () => {
+    const url = `http://${HOST}:${port}`;
+    console.log('');
+    console.log('  A.R.P.O. TierMaker listo.');
+    console.log('  Abre esta direccion en el navegador:');
+    console.log('  ' + url);
+    console.log('');
+    console.log('  Cierra esta ventana para detener el servidor.');
     if (!process.env.ARPO_NO_OPEN) openBrowser(url);
   });
 }

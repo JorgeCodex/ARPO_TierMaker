@@ -1,12 +1,58 @@
-// ============================================================================
-// PERSISTENCIA (Guardar / Guardar como / Abrir / Guardar como JPG)
+﻿// ============================================================================
+// PERSISTENCIA (Guardar / Guardar como / Abrir / Cerrar / Nuevo / Importar / Exportar PNG)
 // ============================================================================
 
-// Handle del archivo de plantilla actualmente abierto/guardado.
-// Mientras exista, "Guardar" reescribe ese archivo.
-let projectFileHandle = null;
-// Nombre del archivo actual (para reutilizarlo al descargar si no hay handle).
-let currentProjectName = 'tierlist.arpo.json';
+// Handle y nombre del archivo, y cambios sin guardar: cada pestaña (documento)
+// tiene los suyos. Se exponen como propiedades globales para no tocar el resto.
+Object.defineProperty(window, 'projectFileHandle', {
+  get() {
+    const doc = getActiveDocument();
+    return doc ? doc.fileHandle : null;
+  },
+  set(value) {
+    const doc = getActiveDocument();
+    if (doc) doc.fileHandle = value;
+  }
+});
+
+Object.defineProperty(window, 'currentProjectName', {
+  get() {
+    const doc = getActiveDocument();
+    return (doc && doc.fileName) || 'tierlist.arpo.json';
+  },
+  set(value) {
+    const doc = getActiveDocument();
+    if (!doc) return;
+    doc.fileName = value;
+    doc.name = value;
+    if (typeof updateTabBar === 'function') updateTabBar();
+  }
+});
+
+Object.defineProperty(window, 'projectDirty', {
+  get() {
+    const doc = getActiveDocument();
+    return doc ? !!doc.dirty : false;
+  },
+  set(value) {
+    const doc = getActiveDocument();
+    if (doc) doc.dirty = !!value;
+    if (typeof updateTabBar === 'function') updateTabBar();
+  }
+});
+
+function markProjectDirty() {
+  projectDirty = true;
+  scheduleAutosave();
+}
+
+function setProjectDirty(value) {
+  projectDirty = !!value;
+}
+
+function isProjectDirty() {
+  return projectDirty;
+}
 
 const PROJECT_MIME = 'application/json';
 const PROJECT_TYPES = [
@@ -55,11 +101,19 @@ function loadProjectData(data) {
     throw new Error('Formato de archivo inválido');
   }
   state.nodes = data.nodes;
+  state.nodes.forEach(n => {
+    if (n && typeof n === 'object') {
+      n.format = typeof normalizeNodeFormat === 'function' ? normalizeNodeFormat(n.format) : (n.format || 'square');
+    }
+  });
   state.edges = Array.isArray(data.edges) ? data.edges : [];
   state.zoom = typeof data.zoom === 'number' ? data.zoom : 1;
   state.panX = typeof data.panX === 'number' ? data.panX : 0;
   state.panY = typeof data.panY === 'number' ? data.panY : 0;
   state.selectedNodeId = null;
+  state.selectedNodeIds = [];
+  state.selectedEdgeId = null;
+  state.connectingFrom = null;
 
   // Reiniciar historial con el estado recién cargado
   state.history = [];
@@ -68,6 +122,211 @@ function loadProjectData(data) {
   saveState();
   render();
   updateUndoRedoButtons();
+  setProjectDirty(false);
+}
+
+// Abre una plantilla en una pestaña nueva. Si la pestaña activa es un lienzo
+// vacío y sin tocar, se reutiliza para no dejar pestañas en blanco de sobra.
+function openProjectInNewDocument(data, fileName, fileHandle) {
+  if (!data || typeof data !== 'object' || !Array.isArray(data.nodes)) {
+    throw new Error('Formato de archivo inválido');
+  }
+  if (typeof flushEdgeEditor === 'function') flushEdgeEditor();
+  if (typeof cancelConnection === 'function') cancelConnection();
+  const active = getActiveDocument();
+  const reuse = active
+    && !active.nodes.length
+    && !active.edges.length
+    && !active.dirty
+    && !active.fileHandle;
+
+  if (reuse) {
+    active.name = fileName || active.name;
+    active.fileName = fileName || null;
+    active.fileHandle = fileHandle || null;
+  } else {
+    const doc = createDocument({
+      name: fileName || null,
+      fileName: fileName || null,
+      fileHandle: fileHandle || null
+    });
+    state.documents.push(doc);
+    state.activeDocId = doc.id;
+  }
+
+  loadProjectData(data);
+  if (typeof updateTabBar === 'function') updateTabBar();
+  return getActiveDocument();
+}
+
+// ============================================================================
+// CICLO DE VIDA DEL PROYECTO (Nuevo / Cerrar) Y CAMBIOS SIN GUARDAR
+// ============================================================================
+
+// Resuelve la promesa del diálogo de cambios sin guardar ('save' | 'discard' | 'cancel')
+let unsavedResolver = null;
+
+function askUnsavedChanges() {
+  return new Promise(resolve => {
+    unsavedResolver = resolve;
+    const modal = document.getElementById('modalUnsaved');
+    if (modal) modal.classList.add('active');
+  });
+}
+
+function finishUnsavedPrompt(choice) {
+  const modal = document.getElementById('modalUnsaved');
+  if (modal) modal.classList.remove('active');
+  if (unsavedResolver) {
+    const resolve = unsavedResolver;
+    unsavedResolver = null;
+    resolve(choice);
+  }
+}
+
+window.cancelUnsavedPrompt = function () {
+  finishUnsavedPrompt('cancel');
+};
+
+document.getElementById('btnUnsavedSave')?.addEventListener('click', () => finishUnsavedPrompt('save'));
+document.getElementById('btnUnsavedNo')?.addEventListener('click', () => finishUnsavedPrompt('discard'));
+document.getElementById('btnUnsavedCancel')?.addEventListener('click', () => finishUnsavedPrompt('cancel'));
+
+// Devuelve true si se puede continuar (no hay cambios o el usuario lo permite)
+async function confirmUnsavedChanges() {
+  if (!projectDirty) return true;
+  const choice = await askUnsavedChanges();
+  if (choice === 'save') return saveProject();
+  return choice === 'discard';
+}
+
+// "Nuevo" crea otra pestaña; no descarta el lienzo actual.
+function newProject() {
+  if (typeof createNewDocument === 'function') createNewDocument();
+}
+
+// "Cerrar" cierra la pestaña activa (preguntando si tiene cambios sin guardar).
+function closeProject() {
+  if (typeof closeDocument === 'function') closeDocument(state.activeDocId);
+}
+
+function requestOpenProject() {
+  openProject();
+}
+
+// ============================================================================
+// RECUPERACIÓN AUTOMÁTICA (borrador en localStorage)
+// ============================================================================
+
+const AUTOSAVE_KEY = 'arpo-autosave';
+let autosaveTimer = null;
+
+function scheduleAutosave() {
+  if (typeof getPref === 'function' && !getPref('autoSave')) return;
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(writeAutosaveDraft, 600);
+}
+
+function serializeDocument(doc) {
+  return {
+    name: doc.name,
+    fileName: doc.fileName,
+    nodes: doc.nodes,
+    edges: doc.edges,
+    zoom: doc.zoom,
+    panX: doc.panX,
+    panY: doc.panY,
+    selectedNodeId: doc.selectedNodeId,
+    selectedNodeIds: doc.selectedNodeIds || []
+  };
+}
+
+function writeAutosaveDraft() {
+  autosaveTimer = null;
+  try {
+    // Solo se recuperan las pestañas con cambios sin guardar.
+    const dirtyDocs = state.documents.filter(d => d.dirty && (d.nodes.length || d.edges.length));
+    if (!dirtyDocs.length) {
+      localStorage.removeItem(AUTOSAVE_KEY);
+      return;
+    }
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({
+      app: 'ARPO-TierMaker',
+      version: 3,
+      multi: true,
+      docCounter: typeof docCounter === 'number' ? docCounter : 0,
+      activeIndex: Math.max(0, dirtyDocs.findIndex(d => d.id === state.activeDocId)),
+      documents: dirtyDocs.map(serializeDocument)
+    }));
+  } catch (e) {
+    // localStorage lleno o no disponible
+  }
+}
+
+function clearAutosaveDraft() {
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+  }
+  try {
+    localStorage.removeItem(AUTOSAVE_KEY);
+  } catch (e) {
+    // noop
+  }
+}
+
+// Restaura las pestañas con cambios sin guardar al iniciar la aplicación
+function restoreAutosaveDraft() {
+  if (typeof getPref === 'function' && !getPref('autoSave')) return false;
+  let raw = null;
+  try {
+    raw = localStorage.getItem(AUTOSAVE_KEY);
+  } catch (e) {
+    return false;
+  }
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.documents) && data.documents.length) {
+      state.documents = [];
+      data.documents.forEach(snap => {
+        const doc = createDocument({
+          name: snap.name,
+          fileName: snap.fileName
+        });
+        doc.nodes = Array.isArray(snap.nodes) ? snap.nodes : [];
+        doc.nodes.forEach(n => {
+          if (n && typeof n === 'object') {
+            n.format = typeof normalizeNodeFormat === 'function' ? normalizeNodeFormat(n.format) : (n.format || 'square');
+          }
+        });
+        doc.edges = Array.isArray(snap.edges) ? snap.edges : [];
+        doc.zoom = typeof snap.zoom === 'number' ? snap.zoom : 1;
+        doc.panX = typeof snap.panX === 'number' ? snap.panX : 0;
+        doc.panY = typeof snap.panY === 'number' ? snap.panY : 0;
+        doc.selectedNodeId = null;
+        doc.selectedNodeIds = [];
+        doc.selectedEdgeId = null;
+        state.documents.push(doc);
+        initDocumentBaseline(doc);
+      });
+      const activeIndex = typeof data.activeIndex === 'number' ? data.activeIndex : 0;
+      state.activeDocId = state.documents[Math.min(activeIndex, state.documents.length - 1)].id;
+      if (typeof data.docCounter === 'number') docCounter = data.docCounter;
+      state.documents.forEach(doc => { doc.dirty = true; });
+      if (typeof updateTabBar === 'function') updateTabBar();
+      showToast(t('toast.draftRestored'), 3000);
+      return true;
+    }
+    // Formato antiguo: un único proyecto
+    loadProjectData(data);
+    setProjectDirty(true);
+    showToast(t('toast.draftRestored'), 3000);
+    return true;
+  } catch (e) {
+    clearAutosaveDraft();
+    return false;
+  }
 }
 
 // --- Escribir / descargar ---
@@ -95,19 +354,25 @@ async function saveProject() {
   if (!projectFileHandle) return saveProjectAs();
   try {
     await writeToHandle(projectFileHandle);
+    setProjectDirty(false);
+    scheduleAutosave();
     showToast(t('toast.saved'));
+    return true;
   } catch (err) {
-    if (err && err.name === 'AbortError') return;
+    if (err && err.name === 'AbortError') return false;
     console.error(err);
     showToast(t('toast.saveErr'));
+    return false;
   }
 }
 
 async function saveProjectAs() {
   if (!supportsFileSystemAccess()) {
     downloadProjectFile(currentProjectName);
+    setProjectDirty(false);
+    scheduleAutosave();
     showToast(location.protocol === 'file:' ? t('toast.needServer') : t('toast.browserNoSupport', { browser: browserName() }), 5000);
-    return;
+    return true;
   }
   try {
     const handle = await window.showSaveFilePicker({
@@ -117,12 +382,18 @@ async function saveProjectAs() {
     projectFileHandle = handle;
     currentProjectName = handle.name;
     await writeToHandle(handle);
+    setProjectDirty(false);
+    scheduleAutosave();
     showToast(t('toast.savedAs'));
+    return true;
   } catch (err) {
-    if (err && err.name === 'AbortError') return;
+    if (err && err.name === 'AbortError') return false;
     console.error(err);
     downloadProjectFile(currentProjectName);
+    setProjectDirty(false);
+    scheduleAutosave();
     showToast(t('toast.savedDownload'));
+    return true;
   }
 }
 
@@ -132,9 +403,8 @@ async function openProject() {
       const [handle] = await window.showOpenFilePicker({ types: PROJECT_TYPES, multiple: false });
       const file = await handle.getFile();
       const text = await file.text();
-      loadProjectData(JSON.parse(text));
-      projectFileHandle = handle;
-      currentProjectName = handle.name;
+      openProjectInNewDocument(JSON.parse(text), handle.name, handle);
+      scheduleAutosave();
       showToast(t('toast.openOk'));
       return;
     } catch (err) {
@@ -147,16 +417,17 @@ async function openProject() {
 }
 
 // ============================================================================
-// EXPORTAR COMO JPG
+// EXPORTAR (PNG transparente / JPG con fondo)
 // ============================================================================
 
 const EDGE_LINE_COLORS = { green: '#22c55e', orange: '#f59e0b', blue: '#06b6d4', purple: '#a855f7' };
 const EDGE_ARROW_COLORS = { green: '#16a34a', orange: '#d97706', blue: '#0891b2', purple: '#9333ea' };
+const EXPORT_LINE_WIDTH = { thin: 7, normal: 12, thick: 18 };
 
-// Colores del export JPG leídos del tema actual (claro/oscuro)
-let jpgTheme = null;
+// Colores del export leídos del tema actual (claro/oscuro)
+let exportTheme = null;
 
-function getJpgTheme() {
+function getExportTheme() {
   const root = document.documentElement;
   const isLight = root.dataset.theme === 'light';
   const cs = getComputedStyle(root);
@@ -241,18 +512,18 @@ function drawChevrons(ctx, x1, y1, x2, y2, color) {
   ctx.stroke();
 }
 
-function drawFieldText(ctx, fields, cx, firstCenterY, step) {
+function drawFieldText(ctx, fields, cx, firstCenterY, step, scale = 1) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.shadowColor = jpgTheme.fieldShadow.color;
-  ctx.shadowBlur = jpgTheme.fieldShadow.blur;
-  ctx.shadowOffsetY = jpgTheme.fieldShadow.offsetY;
+  ctx.shadowColor = exportTheme.fieldShadow.color;
+  ctx.shadowBlur = exportTheme.fieldShadow.blur;
+  ctx.shadowOffsetY = exportTheme.fieldShadow.offsetY;
   fields.forEach((f, i) => {
     const first = i === 0;
     ctx.font = first
-      ? "700 12.8px 'Plus Jakarta Sans', sans-serif"
-      : "600 11.5px 'Plus Jakarta Sans', sans-serif";
-    ctx.fillStyle = first ? jpgTheme.text : jpgTheme.muted;
+      ? `700 ${12.8 * scale}px 'Plus Jakarta Sans', sans-serif`
+      : `600 ${11.5 * scale}px 'Plus Jakarta Sans', sans-serif`;
+    ctx.fillStyle = first ? exportTheme.text : exportTheme.muted;
     ctx.fillText(f, cx, firstCenterY + i * step);
   });
   ctx.shadowColor = 'transparent';
@@ -261,52 +532,79 @@ function drawFieldText(ctx, fields, cx, firstCenterY, step) {
 }
 
 function drawNodeExport(ctx, node, img) {
-  const w = 175;
+  const format = NODE_FORMATS[normalizeNodeFormat(node.format)] || NODE_FORMATS.square;
+  const size = getNodeSize();
   const el = document.getElementById('node-' + node.id);
   const boxEl = el ? el.querySelector('.node-image-box') : null;
-  const h = boxEl ? boxEl.offsetHeight : 175;
+  const w = el ? el.offsetWidth : format.w * size;
+  const h = boxEl ? boxEl.offsetHeight : format.h * size;
   const x = node.x;
   const y = node.y;
   const fields = typeof getNodeFields === 'function' ? getNodeFields(node) : [node.name].filter(Boolean);
+  const round = format.round && !!img;
+  const radius = 12 * size;
 
-  // Caja con el mismo fondo que en el lienzo
-  roundRectPath(ctx, x, y, w, h, 12);
-  ctx.fillStyle = jpgTheme.card;
-  ctx.fill();
+  if (round) {
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fillStyle = exportTheme.card;
+    ctx.fill();
 
-  if (img) {
     ctx.save();
-    roundRectPath(ctx, x, y, w, h, 12);
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
+    ctx.closePath();
     ctx.clip();
     drawCoverImage(ctx, img, x, y, w, h);
     ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = exportTheme.border;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  } else {
+    // Caja con el mismo fondo que en el lienzo
+    roundRectPath(ctx, x, y, w, h, radius);
+    ctx.fillStyle = exportTheme.card;
+    ctx.fill();
+
+    if (img) {
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, radius);
+      ctx.clip();
+      drawCoverImage(ctx, img, x, y, w, h);
+      ctx.restore();
+    }
+
+    roundRectPath(ctx, x, y, w, h, radius);
+    ctx.strokeStyle = exportTheme.border;
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
 
-  roundRectPath(ctx, x, y, w, h, 12);
-  ctx.strokeStyle = jpgTheme.border;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
   // Datos del personaje
-  const step = 16;
+  const step = 16 * size;
   if (img) {
     if (fields.length) {
-      drawFieldText(ctx, fields, x + w / 2, y + h + 6 + step / 2, step);
+      drawFieldText(ctx, fields, x + w / 2, y + h + 6 * size + step / 2, step, size);
     }
   } else if (fields.length) {
     const blockH = fields.length * step;
-    drawFieldText(ctx, fields, x + w / 2, y + h / 2 - blockH / 2 + step / 2, step);
+    drawFieldText(ctx, fields, x + w / 2, y + h / 2 - blockH / 2 + step / 2, step, size);
   }
 }
 
-async function exportCanvasAsJPG() {
+async function exportCanvas(format) {
+  const isPng = format === 'png';
   const nodes = state.nodes.filter(n => !n.inPool);
   if (nodes.length === 0) {
     showToast(t('toast.noCanvasChars'));
     return;
   }
 
-  jpgTheme = getJpgTheme();
+  exportTheme = getExportTheme();
 
   // Límites del contenido
   const PAD = 60;
@@ -316,16 +614,16 @@ async function exportCanvasAsJPG() {
   let maxY = -Infinity;
   nodes.forEach(n => {
     const el = document.getElementById('node-' + n.id);
-    const nodeH = el ? el.offsetHeight : 175;
+    const nodeH = el ? el.offsetHeight : getNodeHeight(n);
     minX = Math.min(minX, n.x);
     minY = Math.min(minY, n.y);
-    maxX = Math.max(maxX, n.x + 175);
+    maxX = Math.max(maxX, n.x + getNodeWidth(n));
     maxY = Math.max(maxY, n.y + nodeH);
   });
 
   const worldW = maxX - minX + PAD * 2;
   const worldH = maxY - minY + PAD * 2;
-  let scale = 2;
+  let scale = Number(typeof getPref === 'function' ? getPref('exportScale') : 2) || 2;
   const maxDim = Math.max(worldW, worldH);
   if (maxDim * scale > 12000) scale = 12000 / maxDim;
   if (scale < 0.5) scale = 0.5;
@@ -337,9 +635,11 @@ async function exportCanvasAsJPG() {
   ctx.scale(scale, scale);
   ctx.translate(-minX + PAD, -minY + PAD);
 
-  // Fondo
-  ctx.fillStyle = jpgTheme.pageBg;
-  ctx.fillRect(minX - PAD, minY - PAD, worldW, worldH);
+  // Fondo: el JPG lleva el fondo del lienzo; el PNG se exporta con fondo transparente
+  if (!isPng) {
+    ctx.fillStyle = exportTheme.pageBg;
+    ctx.fillRect(minX - PAD, minY - PAD, worldW, worldH);
+  }
 
   // Precargar imágenes
   const imgMap = {};
@@ -352,6 +652,8 @@ async function exportCanvasAsJPG() {
   })));
 
   // Conexiones (líneas + flechitas + notas)
+  const includeNotes = typeof getPref !== 'function' || getPref('includeNotesInExport') !== false;
+  const lineWidth = EXPORT_LINE_WIDTH[typeof getPref === 'function' ? getPref('lineWidth') : 'normal'] || 12;
   state.edges.forEach(edge => {
     const from = nodes.find(n => n.id === edge.from);
     const to = nodes.find(n => n.id === edge.to);
@@ -363,16 +665,19 @@ async function exportCanvasAsJPG() {
     const arrowColor = EDGE_ARROW_COLORS[edge.type] || lineColor;
 
     ctx.strokeStyle = lineColor;
-    ctx.lineWidth = 12;
+    ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
 
-    drawChevrons(ctx, a.x, a.y, b.x, b.y, arrowColor);
+    // El azul representa igualdad: sin flechas de dirección.
+    if (edge.type !== 'blue') {
+      drawChevrons(ctx, a.x, a.y, b.x, b.y, arrowColor);
+    }
 
-    if (edge.note && edge.note.trim()) {
+    if (includeNotes && edge.note && edge.note.trim()) {
       const midX = (a.x + b.x) / 2;
       const midY = (a.y + b.y) / 2;
       ctx.font = "600 11px 'JetBrains Mono', monospace";
@@ -380,12 +685,12 @@ async function exportCanvasAsJPG() {
       const bw = tw + 12;
       const bh = 16;
       roundRectPath(ctx, midX - bw / 2, midY - bh / 2, bw, bh, 3);
-      ctx.fillStyle = jpgTheme.pageBg;
+      ctx.fillStyle = isPng ? exportTheme.card : exportTheme.pageBg;
       ctx.fill();
-      ctx.strokeStyle = jpgTheme.border;
+      ctx.strokeStyle = exportTheme.border;
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.fillStyle = jpgTheme.muted;
+      ctx.fillStyle = exportTheme.muted;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(edge.note, midX, midY);
@@ -397,38 +702,76 @@ async function exportCanvasAsJPG() {
 
   canvas.toBlob(blob => {
     if (!blob) {
-      showToast(t('toast.jpgErr'));
+      showToast(t('toast.exportErr'));
       return;
     }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'tierlist-arpo.jpg';
+    a.download = isPng ? 'tierlist-arpo.png' : 'tierlist-arpo.jpg';
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(t('toast.jpgDone'));
-  }, 'image/jpeg', 0.95);
+    showToast(t('toast.exportDone'));
+  }, isPng ? 'image/png' : 'image/jpeg', isPng ? undefined : 0.95);
+}
+
+function exportCanvasAsPNG() {
+  return exportCanvas('png');
+}
+
+function exportCanvasAsJPG() {
+  return exportCanvas('jpg');
 }
 
 // ============================================================================
 // LISTENERS
 // ============================================================================
 
-document.getElementById('btnSave')?.addEventListener('click', saveProject);
-document.getElementById('btnSaveAs')?.addEventListener('click', () => {
-  document.getElementById('saveMenu')?.classList.remove('open');
-  saveProjectAs();
-});
-document.getElementById('btnOpen')?.addEventListener('click', openProject);
-document.getElementById('btnExportJPG')?.addEventListener('click', exportCanvasAsJPG);
+// ============================================================================
+// IMPORTAR IMÁGENES COMO PERSONAJES
+// ============================================================================
 
-// Menú desplegable del botón Guardar
-document.getElementById('btnSaveMenu')?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  document.getElementById('saveMenu')?.classList.toggle('open');
-});
-document.addEventListener('click', () => {
-  document.getElementById('saveMenu')?.classList.remove('open');
+function importImagesAsCharacters() {
+  document.getElementById('importImagesInput')?.click();
+}
+
+document.getElementById('importImagesInput')?.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []).filter(f => f && f.type.startsWith('image/'));
+  e.target.value = '';
+  if (!files.length) return;
+
+  const dataUrls = await Promise.all(files.map(file => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  })));
+
+  let count = 0;
+  dataUrls.forEach(dataUrl => {
+    if (!dataUrl) return;
+    state.nodes.push({
+      id: 'char_' + Date.now() + '_' + Math.floor(Math.random() * 1e9).toString(36),
+      fields: [],
+      name: '',
+      image: dataUrl,
+      imageOriginal: dataUrl,
+      format: 'square',
+      color: '#6366f1',
+      x: 0,
+      y: 0,
+      inPool: true
+    });
+    count++;
+  });
+
+  if (count > 0) {
+    saveState();
+    render();
+    showToast(t('toast.imported', { count }));
+  } else {
+    showToast(t('toast.importErr'));
+  }
 });
 
 // Fallback de apertura con <input type="file"> (navegadores sin File System Access API)
@@ -437,8 +780,8 @@ document.getElementById('fileInput')?.addEventListener('change', async (e) => {
   e.target.value = '';
   if (!file) return;
   try {
-    loadProjectData(JSON.parse(await file.text()));
-    currentProjectName = file.name || currentProjectName;
+    openProjectInNewDocument(JSON.parse(await file.text()), file.name || null, null);
+    scheduleAutosave();
     showToast(t('toast.openOk'));
   } catch (err) {
     console.error(err);
@@ -446,7 +789,7 @@ document.getElementById('fileInput')?.addEventListener('change', async (e) => {
   }
 });
 
-// Atajo Ctrl+S
+// Atajos Ctrl+S
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();

@@ -14,6 +14,7 @@ let cropState = {
   scale: 1,
   minScale: 1,
   maxScale: 8,
+  format: 'square',
   isRound: false,
   isDragging: false,
   startX: 0,
@@ -23,13 +24,23 @@ let cropState = {
 };
 
 const CROP_SIZE = 400;
-const CROP_FRAME = 260;
+
+// Formatos de recorte: tamaño del marco en pantalla y forma final.
+const CROP_FORMATS = {
+  square: { w: 260, h: 260, round: false },
+  round: { w: 260, h: 260, round: true },
+  wide: { w: 360, h: 202.5, round: false },
+  standard: { w: 320, h: 240, round: false }
+};
+
+function getCropFormat() {
+  return CROP_FORMATS[cropState.format] || CROP_FORMATS.square;
+}
 
 const viewport = document.getElementById('cropViewport');
 const cropImg = document.getElementById('cropImage');
 const cropFrame = document.getElementById('cropFrame');
 const cropOverlay = document.getElementById('cropOverlay');
-const shapeToggle = document.getElementById('cropShapeRound');
 const modalCrop = document.getElementById('modalCrop');
 
 let cropAcceptHandler = null;
@@ -43,9 +54,7 @@ function loadCropImage(url) {
     cropState.scale = 1;
     cropState.offsetX = 0;
     cropState.offsetY = 0;
-    cropState.isRound = false;
-    if (shapeToggle) shapeToggle.checked = false;
-    updateFrameShape();
+    applyCropFormat(cropState.format);
     cropImg.src = url;
     openCropModal();
   };
@@ -56,10 +65,11 @@ function loadCropImage(url) {
   cropState.img.src = url;
 }
 
-// source: File o URL (dataURL / http). onAccept recibe el dataURL recortado.
-function startCrop(source, onAccept) {
+// source: File o URL (dataURL / http). onAccept recibe el dataURL recortado y el formato.
+function startCrop(source, onAccept, format) {
   cropAcceptHandler = onAccept || applyEditImageFromCrop;
   cropReturnToEdit = true;
+  cropState.format = CROP_FORMATS[format] ? format : 'square';
   if (source instanceof File) {
     if (!source.type || !source.type.startsWith('image/')) {
       alert(t('alert.invalidImage'));
@@ -84,16 +94,17 @@ document.getElementById('imgFileInput')?.addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     const original = reader.result;
-    startCrop(original, (cropped) => {
+    startCrop(original, (cropped, format) => {
       editImageOriginal = original;
-      applyEditImageFromCrop(cropped);
-    });
+      applyEditImageFromCrop(cropped, format);
+    }, editImageFormat);
   };
   reader.readAsDataURL(file);
 });
 
-function applyEditImageFromCrop(dataUrl) {
+function applyEditImageFromCrop(dataUrl, format) {
   editImageData = dataUrl;
+  if (format) editImageFormat = format;
   if (typeof updateCharImagePreview === 'function') updateCharImagePreview();
   closeCropModal();
 }
@@ -110,7 +121,7 @@ function adjustEditImageZoom() {
     return;
   }
   cropReturnToEdit = true;
-  startCrop(source, applyEditImageFromCrop);
+  startCrop(source, applyEditImageFromCrop, editImageFormat);
 }
 
 function removeEditImage() {
@@ -151,8 +162,9 @@ function fitImageToViewport() {
 
   if (!iw || !ih) return;
 
+  const format = getCropFormat();
   const coverScale = Math.max(vw / iw, vh / ih);
-  cropState.minScale = Math.max(CROP_FRAME / iw, CROP_FRAME / ih);
+  cropState.minScale = Math.max(format.w / iw, format.h / ih);
   cropState.scale = coverScale * 1.2;
   cropState.maxScale = Math.max(cropState.scale * 8, cropState.minScale * 12);
 
@@ -175,28 +187,47 @@ function centerImage() {
 function clampOffsets() {
   const vw = viewport.clientWidth;
   const vh = viewport.clientHeight;
-  const frameX = (vw - CROP_FRAME) / 2;
-  const frameY = (vh - CROP_FRAME) / 2;
-  const minX = frameX + CROP_FRAME - cropState.displayWidth;
-  const minY = frameY + CROP_FRAME - cropState.displayHeight;
+  const format = getCropFormat();
+  const frameX = (vw - format.w) / 2;
+  const frameY = (vh - format.h) / 2;
+  const minX = frameX + format.w - cropState.displayWidth;
+  const minY = frameY + format.h - cropState.displayHeight;
   cropState.offsetX = Math.min(frameX, Math.max(minX, cropState.offsetX));
   cropState.offsetY = Math.min(frameY, Math.max(minY, cropState.offsetY));
 }
 
-function updateFrameShape() {
-  if (!cropFrame || !cropOverlay) return;
-  if (cropState.isRound) {
-    cropFrame.classList.remove('square');
-    cropFrame.classList.add('round');
-    cropOverlay.classList.remove('square');
-    cropOverlay.classList.add('round');
-  } else {
-    cropFrame.classList.remove('round');
-    cropFrame.classList.add('square');
-    cropOverlay.classList.remove('round');
-    cropOverlay.classList.add('square');
+function applyCropFormat(format) {
+  if (format && CROP_FORMATS[format]) cropState.format = format;
+  const cfg = getCropFormat();
+  cropState.isRound = !!cfg.round;
+
+  if (viewport) {
+    viewport.style.setProperty('--crop-w', cfg.w + 'px');
+    viewport.style.setProperty('--crop-h', cfg.h + 'px');
+    viewport.style.setProperty('--crop-w-half', (cfg.w / 2) + 'px');
+    viewport.style.setProperty('--crop-h-half', (cfg.h / 2) + 'px');
+    viewport.style.setProperty('--crop-mask-inner', (cfg.w / 2 - 2) + 'px');
+    viewport.style.setProperty('--crop-mask-outer', (cfg.w / 2 + 2) + 'px');
   }
+  if (cropFrame) {
+    cropFrame.classList.toggle('round', cfg.round);
+    cropFrame.classList.toggle('square', !cfg.round);
+  }
+  if (cropOverlay) {
+    cropOverlay.classList.toggle('round', cfg.round);
+    cropOverlay.classList.toggle('square', !cfg.round);
+  }
+  document.querySelectorAll('.crop-format-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cropFormat === cropState.format);
+  });
 }
+
+document.querySelectorAll('.crop-format-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyCropFormat(btn.dataset.cropFormat);
+    fitImageToViewport();
+  });
+});
 
 function updateImagePosition() {
   if (!cropImg) return;
@@ -288,28 +319,31 @@ document.getElementById('btnZoomOut')?.addEventListener('click', () => zoomImage
 function cropImage() {
   if (!cropState.img) return null;
 
+  const format = getCropFormat();
+  const outW = CROP_SIZE;
+  const outH = format.round ? CROP_SIZE : Math.round(CROP_SIZE * format.h / format.w);
   const canvas = document.createElement('canvas');
-  canvas.width = CROP_SIZE;
-  canvas.height = CROP_SIZE;
+  canvas.width = outW;
+  canvas.height = outH;
   const ctx = canvas.getContext('2d');
 
-  ctx.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
+  ctx.clearRect(0, 0, outW, outH);
 
   const vw = viewport.clientWidth;
   const vh = viewport.clientHeight;
-  const frameX = (vw - CROP_FRAME) / 2;
-  const frameY = (vh - CROP_FRAME) / 2;
+  const frameX = (vw - format.w) / 2;
+  const frameY = (vh - format.h) / 2;
   const scaleFactor = cropState.displayWidth > 0 ? cropState.naturalWidth / cropState.displayWidth : 1;
 
   const sourceX = (frameX - cropState.offsetX) * scaleFactor;
   const sourceY = (frameY - cropState.offsetY) * scaleFactor;
-  const sourceW = CROP_FRAME * scaleFactor;
-  const sourceH = CROP_FRAME * scaleFactor;
+  const sourceW = format.w * scaleFactor;
+  const sourceH = format.h * scaleFactor;
 
   if (cropState.isRound) {
     ctx.save();
     ctx.beginPath();
-    ctx.arc(CROP_SIZE / 2, CROP_SIZE / 2, CROP_SIZE / 2, 0, Math.PI * 2);
+    ctx.arc(outW / 2, outH / 2, Math.min(outW, outH) / 2, 0, Math.PI * 2);
     ctx.closePath();
     ctx.clip();
   }
@@ -317,7 +351,7 @@ function cropImage() {
   ctx.drawImage(
     cropState.img,
     sourceX, sourceY, sourceW, sourceH,
-    0, 0, CROP_SIZE, CROP_SIZE
+    0, 0, outW, outH
   );
 
   if (cropState.isRound) {
@@ -335,7 +369,7 @@ document.getElementById('btnCropAccept')?.addEventListener('click', () => {
       return;
     }
     const handler = cropAcceptHandler || applyEditImageFromCrop;
-    handler(dataUrl);
+    handler(dataUrl, cropState.format);
   } catch (err) {
     console.error('Error al guardar imagen:', err);
       alert(t('alert.addImage') + err.message);
