@@ -48,7 +48,7 @@ header input,
   margin-left: auto;
 }
 
-html.is-electron .window-controls {
+html.is-desktop .window-controls {
   display: flex;
 }
 

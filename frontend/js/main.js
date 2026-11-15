@@ -73,9 +73,9 @@ function bindMenuAction(id, action) {
 }
 
 function setupWindowControls() {
-  if (!window.arpoDesktop || !window.arpoDesktop.isElectron) return;
-  document.documentElement.classList.add('is-electron');
-  document.body.classList.add('is-electron');
+  if (!window.arpoDesktop || !window.arpoDesktop.isDesktop) return;
+  document.documentElement.classList.add('is-desktop');
+  document.body.classList.add('is-desktop');
 
   const minimize = document.getElementById('windowMinimize');
   const maximize = document.getElementById('windowMaximize');

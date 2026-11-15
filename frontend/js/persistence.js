@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // PERSISTENCIA (Guardar / Guardar como / Abrir / Cerrar / Nuevo / Importar / Exportar PNG)
 // ============================================================================
 
@@ -60,11 +60,11 @@ const PROJECT_TYPES = [
 ];
 
 function hasDesktopBridge() {
-  return !!(window.arpoDesktop && window.arpoDesktop.isElectron);
+  return !!(window.arpoDesktop && window.arpoDesktop.isDesktop);
 }
 
 function desktopFileHandle(filePath, fileName) {
-  return { isElectron: true, path: filePath, name: fileName };
+  return { isDesktop: true, path: filePath, name: fileName };
 }
 
 // La API de acceso al sistema de archivos permite SOBRESCRIBIR el archivo abierto.
@@ -341,7 +341,7 @@ function restoreAutosaveDraft() {
 
 async function writeToHandle(handle) {
   const text = JSON.stringify(buildProjectData(), null, 2);
-  if (handle && handle.isElectron) {
+  if (handle && handle.isDesktop) {
     const result = await window.arpoDesktop.saveProject(handle.path, text);
     if (!result || !result.ok) {
       throw new Error((result && result.error) || 'No se pudo guardar');
